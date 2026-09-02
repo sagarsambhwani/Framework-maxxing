@@ -1,0 +1,33 @@
+[project]
+name = "aipoc"
+version = "0.1.0"
+description = "Proof of Concept: OpenRouter + LiteLLM + Langfuse + NeMo Guardrails + LangGraph Research Agent"
+authors = [{ name = "AI Engineer", email = "engineer@example.com" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "litellm>=1.50.0",
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langfuse>=2.50.0",
+    "nemoguardrails>=0.10.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.1",
+    "rich>=13.7.0",
+    "duckduckgo-search>=6.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

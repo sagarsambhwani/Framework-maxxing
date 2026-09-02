@@ -1,0 +1,30 @@
+# Environment & Secret Files (CRITICAL: NEVER COMMIT)
+.env
+.env.*
+!.env.example
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing & Caches
+.pytest_cache/
+.coverage
+htmlcov/
+.litellm_cache/
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
