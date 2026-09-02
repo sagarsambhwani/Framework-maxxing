@@ -1,0 +1,55 @@
+model_list:
+  # Primary fast model for agent iterations & tool planning
+  - model_name: fast-researcher
+    litellm_params:
+      model: openrouter/inclusionai/ling-3.0-flash-fin:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+      rpm: 60
+      tpm: 100000
+
+  # High reasoning model for decomposition & planning
+  - model_name: reasoning-planner
+    litellm_params:
+      model: openrouter/meta-llama/llama-3.3-70b-instruct:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+      rpm: 30
+
+  # Synthesis model for final executive research briefs
+  - model_name: synthesis-model
+    litellm_params:
+      model: openrouter/inclusionai/ling-3.0-flash-fin:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+  # Production Tier Models (Claude 3.5 Sonnet / GPT-4o / Llama-3.3-70B)
+  - model_name: claude-3-5-sonnet
+    litellm_params:
+      model: openrouter/anthropic/claude-3.5-sonnet
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openrouter/openai/gpt-4o
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+  - model_name: llama-3.3-70b
+    litellm_params:
+      model: openrouter/meta-llama/llama-3.3-70b-instruct
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+router_settings:
+  routing_strategy: latency-based-routing
+  routing_strategy_args:
+    ttl: 300
+  allowed_fails: 2
+  cooldown_time: 30
+  fallbacks:
+    - reasoning-planner: ["fast-researcher"]
+    - claude-3-5-sonnet: ["gpt-4o", "llama-3.3-70b", "fast-researcher"]
+    - gpt-4o: ["claude-3-5-sonnet", "fast-researcher"]
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  # Native Langfuse integration callback
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]

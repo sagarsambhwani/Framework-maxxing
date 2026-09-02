@@ -1,0 +1,9 @@
+define bot output ungrounded
+  "The output could not be substantiated by verified research findings."
+
+define flow check hallucination
+  bot ...
+  $is_grounded = execute check_grounding
+  if not $is_grounded
+    bot output ungrounded
+    stop
