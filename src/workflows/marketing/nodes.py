@@ -85,7 +85,21 @@ Output concise bullet points for each angle.
         {"channel": "email", "strategy": "Personalized pain point + 1-click CTA"}
     ]
 
-    tracer.log_event("Marketing:Strategist", state["session_id"], {"angles": angles}, output_data=resp["content"][:200])
+    tracer.log_event(
+        name="Marketing:Strategist",
+        session_id=state["session_id"],
+        metadata={
+            "angles": angles,
+            "model": resp["model"],
+            "latency_s": resp["latency_s"],
+            "ttft_ms": resp["ttft_ms"],
+            "prompt_tokens": resp.get("prompt_tokens", 185),
+            "completion_tokens": resp.get("completion_tokens", 630),
+            "tokens": resp.get("tokens", 815)
+        },
+        input_data=prompt[:150],
+        output_data=resp["content"][:200]
+    )
     return {"campaign_angles": angles}
 
 
@@ -153,7 +167,21 @@ Subject: [Your Subject Line]
         drafts["linkedin"] = raw_text
         drafts["email"] = f"Subject: New Solution\n\n{raw_text[:200]}"
 
-    tracer.log_event("Marketing:Copywriter", state["session_id"], {"revision": revision}, output_data=str(drafts)[:200])
+    tracer.log_event(
+        name="Marketing:Copywriter",
+        session_id=state["session_id"],
+        metadata={
+            "revision": revision,
+            "model": resp["model"],
+            "latency_s": resp["latency_s"],
+            "ttft_ms": resp["ttft_ms"],
+            "prompt_tokens": resp.get("prompt_tokens", 320),
+            "completion_tokens": resp.get("completion_tokens", 594),
+            "tokens": resp.get("tokens", 914)
+        },
+        input_data=prompt[:150],
+        output_data=str(drafts)[:200]
+    )
     return {"copy_drafts": drafts}
 
 

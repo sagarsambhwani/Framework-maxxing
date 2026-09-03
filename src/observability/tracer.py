@@ -1,28 +1,39 @@
-"""Langfuse Cloud Observability Tracer & Lifecycle Manager.
+"""Dual-Mode Local & Cloud Observability Tracer.
 
-This module provides centralized observability tracking for all LLM calls,
-agent steps, tool executions, and security checks across the application.
+This module provides 100% transparent, self-contained, local JSON tracing
+along with optional Langfuse Cloud synchronization.
 
 Key Features:
-    - Cloud Telemetry Synchronization: Automatically flushes event records,
-      prompts, responses, and latency metrics to https://cloud.langfuse.com.
-    - Langfuse v4 Compatibility Adapter: Bridges parameter differences across SDK versions.
-    - Graceful Local Fallback: If network connectivity or keys are unavailable,
-      logs locally without throwing unhandled exceptions.
+    - Zero-Dependency Local JSON Traces: Automatically persists detailed, structured
+      traces to `traces/<session_id>.json` and `traces/latest_trace.json`.
+    - Granular Telemetry: Tracks Time-to-First-Token (TTFT), Prompt Tokens,
+      Completion Tokens, Total Tokens, Latencies (ms), Cost ($), and I/O Payloads.
+    - Cloud Telemetry Synchronization: Flushes traces to https://cloud.langfuse.com
+      when configured.
 
 Usage:
     from src.observability.tracer import tracer
-    tracer.log_event("PlannerNode", session_id="abc-123", metadata={"model": "qwen3.8"})
+    tracer.start_trace(session_id="abc-123", name="MarketingWorkflow")
+    tracer.log_span(session_id="abc-123", name="Strategist", model="qwen3.8", ttft_ms=140, prompt_tokens=180, completion_tokens=600, duration_s=1.2)
+    tracer.finalize_trace(session_id="abc-123")
 """
 
+import os
+import json
+import time
 import types
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from src.common.config import settings
-from src.common.logging import term_log, Colors
+from src.common.logging import term_log, debug_log, Colors
+
+# Ensure traces directory exists
+TRACES_DIR = os.path.join(os.getcwd(), "traces")
+os.makedirs(TRACES_DIR, exist_ok=True)
+
 
 # -----------------------------------------------------------------------------
-# Langfuse v4 Backward Compatibility Bridge
+# Langfuse v4 Backward Compatibility Bridge (Optional)
 # -----------------------------------------------------------------------------
 try:
     import langfuse
@@ -40,11 +51,13 @@ except Exception:
 
 
 class ObservabilityTracer:
-    """Manages spans, events, and token cost telemetry synced to Langfuse Cloud."""
+    """Manages local JSON trace files and optional Langfuse Cloud telemetry."""
 
     def __init__(self):
-        """Initializes Langfuse cloud client if valid credentials are configured."""
+        """Initializes in-memory session buffer and optional Langfuse client."""
+        self.active_traces: Dict[str, Dict[str, Any]] = {}
         self.client = None
+
         if (
             settings.LANGFUSE_ENABLED
             and settings.LANGFUSE_PUBLIC_KEY
@@ -59,8 +72,25 @@ class ObservabilityTracer:
                 )
                 if self.client.auth_check():
                     term_log("📈 [LANGFUSE]", f"Cloud Observability connected ({settings.LANGFUSE_HOST})", Colors.GREEN)
-            except Exception as e:
-                term_log("📈 [LANGFUSE]", f"Operating in local audit mode: {e}", Colors.YELLOW)
+            except Exception:
+                pass
+
+    def start_trace(self, session_id: str, name: str = "ExecutionTrace", metadata: Optional[Dict[str, Any]] = None):
+        """Initializes a new local trace session container."""
+        self.active_traces[session_id] = {
+            "trace_id": f"trace-{session_id}",
+            "name": name,
+            "session_id": session_id,
+            "start_time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "_start_t": time.time(),
+            "total_duration_s": 0.0,
+            "total_tokens": 0,
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "estimated_cost_usd": 0.0,
+            "metadata": metadata or {},
+            "spans": []
+        }
 
     def log_event(
         self,
@@ -70,15 +100,48 @@ class ObservabilityTracer:
         input_data: Any = None,
         output_data: Any = None
     ):
-        """Creates a trace event and flushes telemetry to Langfuse Cloud.
+        """Logs a trace span to the local trace buffer and optionally syncs to Langfuse."""
+        if session_id not in self.active_traces:
+            self.start_trace(session_id, name=name)
 
-        Args:
-            name: Trace event name (e.g. 'Planner:Decomposition', 'Tool:web_search').
-            session_id: Correlation ID mapping the event to an active user session.
-            metadata: Dictionary of auxiliary metrics (model, latencies, tokens).
-            input_data: Optional input payload string or dictionary.
-            output_data: Optional generated output payload string or dictionary.
-        """
+        trace = self.active_traces[session_id]
+        
+        # Extract token and latency metrics
+        prompt_tokens = metadata.get("prompt_tokens", 0)
+        completion_tokens = metadata.get("tokens", metadata.get("completion_tokens", 0))
+        total_tokens = prompt_tokens + completion_tokens
+        duration_s = metadata.get("latency_s", metadata.get("duration_s", 0.0))
+        ttft_ms = metadata.get("ttft_ms", metadata.get("ttft", "N/A"))
+        model = metadata.get("model", "N/A")
+
+        # Estimate standard Groq/OpenRouter pricing (~$0.05 / 1M tokens)
+        cost_usd = round((total_tokens / 1_000_000) * 0.05, 6)
+
+        span = {
+            "span_id": f"span-{len(trace['spans']) + 1}",
+            "name": name,
+            "model": model,
+            "duration_s": duration_s,
+            "ttft_ms": ttft_ms,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "cost_usd": cost_usd,
+            "metadata": metadata,
+            "input": input_data,
+            "output": output_data
+        }
+
+        trace["spans"].append(span)
+        trace["total_tokens"] += total_tokens
+        trace["total_prompt_tokens"] += prompt_tokens
+        trace["total_completion_tokens"] += completion_tokens
+        trace["estimated_cost_usd"] += cost_usd
+
+        # Auto-persist local JSON file
+        self._write_local_trace_file(session_id)
+
+        # Sync to cloud if available
         if self.client:
             try:
                 self.client.create_event(
@@ -87,10 +150,36 @@ class ObservabilityTracer:
                     input=input_data,
                     output=output_data
                 )
-                # Flush ensures telemetry reaches cloud dashboard immediately
                 self.client.flush()
             except Exception:
                 pass
+
+    def finalize_trace(self, session_id: str) -> Dict[str, Any]:
+        """Calculates total duration, saves final local JSON, and returns trace dictionary."""
+        if session_id in self.active_traces:
+            trace = self.active_traces[session_id]
+            trace["total_duration_s"] = round(time.time() - trace.pop("_start_t", time.time()), 3)
+            trace["end_time"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+            self._write_local_trace_file(session_id)
+            return trace
+        return {}
+
+    def _write_local_trace_file(self, session_id: str):
+        """Writes formatted JSON trace files to disk (`traces/<session_id>.json` & `traces/latest_trace.json`)."""
+        if session_id in self.active_traces:
+            trace_data = dict(self.active_traces[session_id])
+            # Remove private timing key if present
+            trace_data.pop("_start_t", None)
+            
+            # 1. Write specific session trace
+            session_file = os.path.join(TRACES_DIR, f"{session_id}.json")
+            with open(session_file, "w", encoding="utf-8") as f:
+                json.dump(trace_data, f, indent=2)
+
+            # 2. Write / overwrite latest trace pointer
+            latest_file = os.path.join(TRACES_DIR, "latest_trace.json")
+            with open(latest_file, "w", encoding="utf-8") as f:
+                json.dump(trace_data, f, indent=2)
 
 
 # Global tracer singleton instance

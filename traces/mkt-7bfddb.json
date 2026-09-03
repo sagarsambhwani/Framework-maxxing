@@ -1,0 +1,180 @@
+{
+  "trace_id": "trace-mkt-7bfddb",
+  "name": "Marketing:GuardrailCheck",
+  "session_id": "mkt-7bfddb",
+  "start_time": "2026-09-03T20:48:22+0530",
+  "total_duration_s": 0.0,
+  "total_tokens": 1708,
+  "total_prompt_tokens": 384,
+  "total_completion_tokens": 1324,
+  "estimated_cost_usd": 8.5e-05,
+  "metadata": {},
+  "spans": [
+    {
+      "span_id": "span-1",
+      "name": "Marketing:GuardrailCheck",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "allowed": true,
+        "reason": "Passed all safety policies"
+      },
+      "input": null,
+      "output": null
+    },
+    {
+      "span_id": "span-2",
+      "name": "Marketing:Researcher",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "insights": [
+          "Market context: Key trend in New AI Product: High demand for cost-reduction, ultra-low latency, and zero-vendor lock-in....",
+          "Core differentiator: AI Gateway reducing LLM costs by 70% with 0ms caching...",
+          "Target demographic: Tech Leaders & Engineers"
+        ]
+      },
+      "input": null,
+      "output": null
+    },
+    {
+      "span_id": "span-3",
+      "name": "Marketing:Strategist",
+      "model": "groq/qwen/qwen3.8-27b",
+      "duration_s": 5.31,
+      "ttft_ms": 140.0,
+      "prompt_tokens": 160,
+      "completion_tokens": 683,
+      "total_tokens": 843,
+      "cost_usd": 4.2e-05,
+      "metadata": {
+        "angles": [
+          {
+            "channel": "twitter",
+            "strategy": "Curiosity hook + bold metric proof"
+          },
+          {
+            "channel": "linkedin",
+            "strategy": "Engineering bottleneck breakdown + architectural lesson"
+          },
+          {
+            "channel": "email",
+            "strategy": "Personalized pain point + 1-click CTA"
+          }
+        ],
+        "model": "groq/qwen/qwen3.8-27b",
+        "latency_s": 5.31,
+        "ttft_ms": 140.0,
+        "prompt_tokens": 160,
+        "completion_tokens": 523,
+        "tokens": 683
+      },
+      "input": "\nYou are a Principal Growth Strategist. Decompose this marketing brief into high-impact channel angles:\n\nBrief: AI Gateway reducing LLM costs by 70% w",
+      "output": "Here are the three high-impact channel angles decomposed for the AI Gateway brief, tailored to Tech Leaders and Engineers with an authoritative, direct voice.\n\n### 1. Twitter / X Viral Hook\n*   **The "
+    },
+    {
+      "span_id": "span-4",
+      "name": "Marketing:Copywriter",
+      "model": "groq/qwen/qwen3.8-27b",
+      "duration_s": 1.275,
+      "ttft_ms": 140.0,
+      "prompt_tokens": 224,
+      "completion_tokens": 641,
+      "total_tokens": 865,
+      "cost_usd": 4.3e-05,
+      "metadata": {
+        "revision": 0,
+        "model": "groq/qwen/qwen3.8-27b",
+        "latency_s": 1.275,
+        "ttft_ms": 140.0,
+        "prompt_tokens": 224,
+        "completion_tokens": 417,
+        "tokens": 641
+      },
+      "input": "\nYou are an Elite Direct-Response Copywriter. Write production-ready copy for the following channels:\n\nBrief: AI Gateway reducing LLM costs by 70% wit",
+      "output": "{'twitter': 'Stop burning cash on redundant LLM calls. Our AI Gateway cuts inference costs by 70% with 0ms semantic caching. Same quality, fraction of the price.\\n\\nStop paying for tokens you\u2019ve alrea"
+    },
+    {
+      "span_id": "span-5",
+      "name": "Marketing:Critic",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "approved": true,
+        "feedback": [],
+        "revisions": 1
+      },
+      "input": null,
+      "output": null
+    },
+    {
+      "span_id": "span-6",
+      "name": "Marketing:Publisher",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "package": {
+          "status": "APPROVED",
+          "product_name": "New AI Product",
+          "target_audience": "Tech Leaders & Engineers",
+          "brand_voice": "Authoritative, Direct & Engaging",
+          "revisions_executed": 1,
+          "assets": {
+            "twitter_x": {
+              "copy": "Stop burning cash on redundant LLM calls. Our AI Gateway cuts inference costs by 70% with 0ms semantic caching. Same quality, fraction of the price.\n\nStop paying for tokens you\u2019ve already generated.\n\nDeploy in minutes. #AIGateway",
+              "metrics": {
+                "char_count": 229,
+                "word_count": 36,
+                "sentence_count": 5,
+                "avg_words_per_sentence": 7.2,
+                "est_reading_time_sec": 10.3
+              }
+            },
+            "linkedin": {
+              "copy": "Your LLM bill is a leaky bucket.\n\nEvery redundant query, every repeated prompt, every unnecessary token is draining your budget.\n\nMost teams treat inference costs as a fixed overhead.\nSmart teams treat them as an optimization problem.\n\nWe built an AI Gateway that solves this at the infrastructure layer.\n\nHere is the breakdown:\n\n1. The Problem:\nHigh-volume LLM applications face exponential cost growth. Redundant requests are the biggest silent killer of margins.\n\n2. The Solution:\nOur gateway intercepts requests and applies 0ms semantic caching. It identifies duplicate or near-duplicate queries instantly.\n\n3. The Result:\n*   70% reduction in LLM spend.\n*   Zero added latency (0ms overhead).\n*   No code changes required.\n\nYou don\u2019t need a smaller model to save money. You need smarter routing.\n\nStop overpaying for repetition.\n\n\ud83d\udc47 Click the link in the comments to see the live demo and calculate your potential savings.",
+              "metrics": {
+                "char_count": 926,
+                "word_count": 145,
+                "sentence_count": 19,
+                "avg_words_per_sentence": 7.6,
+                "est_reading_time_sec": 41.4
+              }
+            },
+            "email": {
+              "copy": "Subject: Cut LLM costs by 70% (0ms latency)\n\nHi [First Name],\n\nMost engineering teams assume that scaling LLM usage means scaling costs linearly. But if you are running high-volume applications, you are likely paying for the same answers twice, three times, or ten times over.\n\nOur AI Gateway changes that math. By implementing 0ms semantic caching at the infrastructure level, we intercept redundant requests before they hit the model. The result is a verified 70% reduction in inference costs without sacrificing response speed or output quality.\n\nStop paying for tokens you have already generated.\n\n[Button: Calculate Your Savings]",
+              "metrics": {
+                "char_count": 634,
+                "word_count": 98,
+                "sentence_count": 6,
+                "avg_words_per_sentence": 16.3,
+                "est_reading_time_sec": 28.0
+              }
+            }
+          }
+        }
+      },
+      "input": null,
+      "output": null
+    }
+  ]
+}
