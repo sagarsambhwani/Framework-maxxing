@@ -145,19 +145,34 @@ Generate multi-channel campaigns (Twitter/X, LinkedIn, Email Nurture) with marke
 
 ---
 
-### 4. Run Multi-Provider Speed & Latency Benchmark
+### 4. 🦅 Launch Arize Phoenix Local Visual Observability Dashboard
+Launch a 100% local, self-hosted visual evaluation and tracing workbench with OpenTelemetry support on port 6006:
+```powershell
+.venv\Scripts\python.exe main.py phoenix
+```
+> 👉 *Open `http://localhost:6006` to visually inspect trace waterfalls, token costs, latencies, and execution graphs without any cloud accounts.*
+
+---
+
+### 5. 🚨 Run Production Trace SLA Alert Scanner
+Scan your local JSON traces for SLA violations, slow TTFT, and token budget ceilings:
+```powershell
+.venv\Scripts\python.exe main.py alerts
+```
+
+---
+
+### 6. Run Multi-Provider Speed & Latency Benchmark
 ```powershell
 .venv\Scripts\python.exe main.py benchmark
 ```
 
 ---
 
-### 5. 📊 Run Enterprise Evaluation & Benchmarking Suite (RAG Triad, Safety, Marketing, Tools)
-Run the automated evaluation benchmark across **NeMo Guardrails security, Agent tool accuracy, Marketing campaign compliance, RAG Faithfulness (LLM Judge), and Multi-Provider latency**:
+### 7. 📊 Run Enterprise Evaluation & Benchmarking Suite
 ```powershell
 .venv\Scripts\python.exe main.py eval
 ```
-> 👉 *Exports a complete markdown scorecard to `evaluation_report.md` and syncs evaluation traces to [Langfuse Cloud](https://cloud.langfuse.com).*
 
 ---
 
@@ -182,6 +197,9 @@ Run the automated evaluation benchmark across **NeMo Guardrails security, Agent 
 
 # Example 6: Autonomous Agentic Marketing Campaign Generator
 .venv\Scripts\python.exe examples/06_marketing_agent_workflow.py
+
+# Example 7: Multi-Target Observability (Local JSON, Phoenix, OTel, Langfuse)
+.venv\Scripts\python.exe examples/07_observability_comparison_demo.py
 ```
 
 ### Automated Pytest Suite (21 Tests):

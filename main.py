@@ -182,6 +182,38 @@ def run_marketing(brief: str):
     print("=" * 80 + "\n")
 
 
+def run_phoenix_server():
+    """Launches local Arize Phoenix visual tracing UI on http://localhost:6006."""
+    try:
+        import phoenix as px
+        print_banner("ARIZE PHOENIX LOCAL OBSERVABILITY SERVER", "Dashboard: http://localhost:6006 | OpenTelemetry: ACTIVE")
+        session = px.launch_app(host="127.0.0.1", port=6006)
+        print("✓ Arize Phoenix is running at http://localhost:6006")
+        print("Press Ctrl+C to stop the Phoenix server.")
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nStopping Arize Phoenix server...")
+    except Exception as e:
+        term_log("❌ [PHOENIX ERROR]", f"Could not launch Phoenix: {e}", Colors.RED)
+
+
+def run_alert_check():
+    """Scans the latest local trace for production SLA violations."""
+    from src.observability.alerts import ProductionAlertEngine
+    latest_file = os.path.join(os.getcwd(), "traces", "latest_trace.json")
+    if not os.path.exists(latest_file):
+        term_log("⚠️ [ALERTS]", "No traces found in 'traces/latest_trace.json'. Run a workflow first.", Colors.YELLOW)
+        return
+
+    with open(latest_file, "r", encoding="utf-8") as f:
+        trace_data = json.load(f)
+
+    print_banner("PRODUCTION TRACE SLA ALERT SCANNER", f"Scanning Trace ID: {trace_data.get('trace_id')} | Session: {trace_data.get('session_id')}")
+    alerts = ProductionAlertEngine.evaluate_trace(trace_data)
+    ProductionAlertEngine.render_alerts(alerts)
+
+
 def main():
     """Parses command-line arguments and dispatches to appropriate handler."""
     parser = argparse.ArgumentParser(
@@ -215,11 +247,17 @@ def main():
     )
     mkt_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
-    # 4. 'benchmark' subcommand
+    # 4. 'phoenix' subcommand
+    subparsers.add_parser("phoenix", help="Launch Arize Phoenix Local Visual Dashboard on http://localhost:6006")
+
+    # 5. 'alerts' subcommand
+    subparsers.add_parser("alerts", help="Scan latest trace file for SLA and security violations")
+
+    # 6. 'benchmark' subcommand
     bench_parser = subparsers.add_parser("benchmark", help="Run multi-provider speed & latency benchmark")
     bench_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
-    # 5. 'eval' subcommand
+    # 7. 'eval' subcommand
     eval_parser = subparsers.add_parser("eval", help="Run Enterprise AI Evaluation & Benchmarking Suite")
     eval_parser.add_argument("--export-report", default="evaluation_report.md", help="Path to export Markdown report")
     eval_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
@@ -236,6 +274,10 @@ def main():
         run_agent(args.query)
     elif args.command == "marketing":
         run_marketing(args.brief)
+    elif args.command == "phoenix":
+        run_phoenix_server()
+    elif args.command == "alerts":
+        run_alert_check()
     elif args.command == "benchmark":
         run_benchmark()
     elif args.command == "eval":
