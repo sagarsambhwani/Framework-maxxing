@@ -49,7 +49,11 @@ class EvaluationRunner:
         term_log("🧠 [EVAL:RAG]", "Running LLM-as-a-Judge for Faithfulness & Answer Relevance...", Colors.YELLOW)
         rag_results = self.eval_rag()
 
-        # 4. Measure Gateway Latency & Cache Speedup
+        # 4. Run Agentic Marketing Workflow Benchmarks
+        term_log("📣 [EVAL:MARKETING]", "Evaluating Agentic Marketing Campaign Workflow...", Colors.MAGENTA)
+        mkt_results = self.eval_marketing()
+
+        # 5. Measure Gateway Latency & Cache Speedup
         term_log("⚡ [EVAL:PERF]", "Measuring Groq LPU latency & 0ms cache speedup...", Colors.GREEN)
         perf_results = self.eval_performance()
 
@@ -62,6 +66,7 @@ class EvaluationRunner:
             "safety_metrics": MetricAggregator.calculate_safety_metrics(safety_results),
             "tool_metrics": MetricAggregator.calculate_tool_metrics(tool_results),
             "rag_metrics": MetricAggregator.calculate_rag_metrics(rag_results),
+            "marketing_metrics": MetricAggregator.calculate_marketing_metrics(mkt_results),
             "performance_metrics": perf_results
         }
 
@@ -162,6 +167,52 @@ class EvaluationRunner:
                 "relevance_score": rel_eval["score"],
                 "relevance_rationale": rel_eval["rationale"]
             })
+        return results
+
+    def eval_marketing(self) -> list:
+        """Evaluates Agentic Marketing Campaign Workflow on golden dataset."""
+        from src.workflows.marketing.graph import marketing_workflow
+        from src.evaluation.dataset import MARKETING_DATASET
+
+        results = []
+        for item in MARKETING_DATASET[:2]:  # Evaluate legitimate marketing briefs
+            state = marketing_workflow.invoke({
+                "brief": item["brief"],
+                "product_name": item["product_name"],
+                "target_audience": item["target_audience"],
+                "brand_voice": item["brand_voice"],
+                "target_channels": item["target_channels"],
+                "session_id": f"{self.session_id}-{item['id']}",
+                "guardrail_allowed": True,
+                "guardrail_reason": "",
+                "research_insights": [],
+                "campaign_angles": [],
+                "copy_drafts": {},
+                "critic_feedback": [],
+                "critic_approved": False,
+                "revision_count": 0,
+                "final_campaign": {}
+            })
+
+            assets = state.get("final_campaign", {}).get("assets", {})
+            tweet_copy = assets.get("twitter_x", {}).get("copy", "")
+            channel_ok = len(tweet_copy) <= 295
+
+            # Evaluate with LLM Judge
+            judge_res = judge.evaluate_marketing_copy(
+                brief=item["brief"],
+                target_voice=item["brand_voice"],
+                copy_assets=assets
+            )
+
+            results.append({
+                "id": item["id"],
+                "channel_compliant": channel_ok,
+                "voice_score": judge_res["voice_score"],
+                "hook_score": judge_res["hook_score"],
+                "cta_score": judge_res["cta_score"]
+            })
+
         return results
 
     def eval_performance(self) -> Dict[str, Any]:

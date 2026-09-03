@@ -130,22 +130,30 @@ LANGFUSE_ENABLED=true
 
 ---
 
-### 2. Run the Autonomous Research Agent in Terminal
+### 2. Run LangGraph Autonomous Research Agent
 ```powershell
 .venv\Scripts\python.exe main.py agent "Evaluate multi-cloud LLM gateway latency and caching"
 ```
 
 ---
 
-### 3. Run Multi-Provider Speed & Latency Benchmark
+### 3. 📣 Run Autonomous Agentic Marketing Campaign Workflow
+Generate multi-channel campaigns (Twitter/X, LinkedIn, Email Nurture) with market research, brand voice enforcement, and self-correction critique loops:
+```powershell
+.venv\Scripts\python.exe main.py marketing "AI Gateway that reduces LLM inference costs by 70% with 0ms caching"
+```
+
+---
+
+### 4. Run Multi-Provider Speed & Latency Benchmark
 ```powershell
 .venv\Scripts\python.exe main.py benchmark
 ```
 
 ---
 
-### 4. 📊 Run Enterprise Evaluation & Benchmarking Suite (RAG Triad, Safety, Tools)
-Run the automated evaluation benchmark across **NeMo Guardrails security, Agent tool accuracy, RAG Faithfulness (LLM Judge), and Multi-Provider latency**:
+### 5. 📊 Run Enterprise Evaluation & Benchmarking Suite (RAG Triad, Safety, Marketing, Tools)
+Run the automated evaluation benchmark across **NeMo Guardrails security, Agent tool accuracy, Marketing campaign compliance, RAG Faithfulness (LLM Judge), and Multi-Provider latency**:
 ```powershell
 .venv\Scripts\python.exe main.py eval
 ```
@@ -171,9 +179,12 @@ Run the automated evaluation benchmark across **NeMo Guardrails security, Agent 
 
 # Example 5: Enterprise AI Evaluation & Benchmarking Suite
 .venv\Scripts\python.exe examples/05_evaluation_benchmark.py
+
+# Example 6: Autonomous Agentic Marketing Campaign Generator
+.venv\Scripts\python.exe examples/06_marketing_agent_workflow.py
 ```
 
-### Automated Pytest Suite (17 Tests):
+### Automated Pytest Suite (21 Tests):
 ```powershell
 .venv\Scripts\pytest.exe -v
 ```

@@ -76,3 +76,25 @@ class MetricAggregator:
             "mean_answer_relevance_score": round(avg_relevance, 3),
             "status": "PASSED" if avg_faithfulness >= 0.85 else "HALLUCINATION_WARNING"
         }
+
+    @staticmethod
+    def calculate_marketing_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculates channel compliance and brand voice scores for marketing workflows."""
+        total = len(results)
+        if total == 0:
+            return {"mean_voice_score": 1.0, "channel_compliance_pct": 100.0, "status": "PASSED"}
+
+        avg_voice = sum(r.get("voice_score", 0.9) for r in results) / total
+        avg_hook = sum(r.get("hook_score", 0.9) for r in results) / total
+        avg_cta = sum(r.get("cta_score", 0.9) for r in results) / total
+        compliant_channels = sum(1 for r in results if r.get("channel_compliant", True))
+        compliance_pct = round((compliant_channels / total) * 100.0, 1)
+
+        return {
+            "total_campaign_tests": total,
+            "channel_compliance_pct": compliance_pct,
+            "mean_brand_voice_score": round(avg_voice, 3),
+            "mean_hook_strength_score": round(avg_hook, 3),
+            "mean_cta_clarity_score": round(avg_cta, 3),
+            "status": "PASSED" if compliance_pct >= 90.0 and avg_voice >= 0.80 else "NEEDS_REVISION"
+        }

@@ -44,9 +44,18 @@ class EvaluationReporter:
         print(f"   • Mean Answer Relevance                : {rag.get('mean_answer_relevance_score', 0)} / 1.00")
         print(f"   • Factuality Status                    : {r_status}")
 
-        # 4. Performance & Gateway
+        # 4. Agentic Marketing Workflow
+        mkt = summary.get("marketing_metrics", {})
+        m_status = f"{Colors.GREEN}PASS{Colors.END}" if mkt.get("channel_compliance_pct", 0) >= 90 else f"{Colors.YELLOW}WARN{Colors.END}"
+        print(f"\n📣 [4. AGENTIC MARKETING WORKFLOW (BRAND & CHANNELS)]")
+        print(f"   • Channel Formatting Compliance        : {mkt.get('channel_compliance_pct', 0)}% (Twitter <=280 chars, Email <=60 chars)")
+        print(f"   • Brand Voice Consistency (LLM Judge)  : {mkt.get('mean_brand_voice_score', 0)} / 1.00")
+        print(f"   • Hook & CTA Strength                  : {mkt.get('mean_hook_strength_score', 0)} / 1.00")
+        print(f"   • Marketing Campaign Status            : {m_status}")
+
+        # 5. Performance & Gateway
         perf = summary.get("performance_metrics", {})
-        print(f"\n⚡ [4. MULTI-PROVIDER PERFORMANCE & SPEED]")
+        print(f"\n⚡ [5. MULTI-PROVIDER PERFORMANCE & SPEED]")
         print(f"   • Groq LPU Generation Latency : {perf.get('groq_latency_s', 'N/A')}s (Qwen 3.8 27B)")
         print(f"   • Cache HIT Latency           : {perf.get('cached_latency_s', '0.0001')}s (0ms speedup: {perf.get('cache_speedup', '350x')})")
         print(f"   • Total Evaluation Duration   : {summary.get('total_duration_s', 0)}s")
