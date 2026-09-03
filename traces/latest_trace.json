@@ -1,18 +1,18 @@
 {
-  "trace_id": "trace-pipe-f4d46c",
-  "name": "Guardrail:InputCheck",
-  "session_id": "pipe-f4d46c",
-  "start_time": "2026-09-03T21:36:56+0530",
-  "total_duration_s": 0.0,
-  "total_tokens": 0,
-  "total_prompt_tokens": 0,
-  "total_completion_tokens": 0,
-  "estimated_cost_usd": 0.0,
+  "trace_id": "trace-obs-1d8a6e",
+  "name": "Marketing:GuardrailCheck",
+  "session_id": "obs-1d8a6e",
+  "start_time": "2026-09-03T22:42:35+0530",
+  "total_duration_s": 7.374,
+  "total_tokens": 1672,
+  "total_prompt_tokens": 392,
+  "total_completion_tokens": 1280,
+  "estimated_cost_usd": 8.400000000000001e-05,
   "metadata": {},
   "spans": [
     {
       "span_id": "span-1",
-      "name": "Guardrail:InputCheck",
+      "name": "Marketing:GuardrailCheck",
       "model": "N/A",
       "duration_s": 0.0,
       "ttft_ms": "N/A",
@@ -21,11 +21,161 @@
       "total_tokens": 0,
       "cost_usd": 0.0,
       "metadata": {
-        "allowed": false,
-        "reason": "BLOCKED by NeMo Guardrails: Disallowed pattern 'format\\s+c:\\s*drive' detected."
+        "allowed": true,
+        "reason": "Passed all safety policies"
+      },
+      "input": null,
+      "output": null
+    },
+    {
+      "span_id": "span-2",
+      "name": "Marketing:Researcher",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "insights": [
+          "Market context: Key trend in HyperGateway AI: High demand for cost-reduction, ultra-low latency, and zero-vendor lock-in....",
+          "Core differentiator: Launch an ultra-fast AI Gateway that reduces inference costs by 70% with 0ms in-...",
+          "Target demographic: Enterprise CTOs"
+        ]
+      },
+      "input": null,
+      "output": null
+    },
+    {
+      "span_id": "span-3",
+      "name": "Marketing:Strategist",
+      "model": "groq/qwen/qwen3.8-27b",
+      "duration_s": 3.417,
+      "ttft_ms": 140.0,
+      "prompt_tokens": 164,
+      "completion_tokens": 689,
+      "total_tokens": 853,
+      "cost_usd": 4.3e-05,
+      "metadata": {
+        "angles": [
+          {
+            "channel": "twitter",
+            "strategy": "Curiosity hook + bold metric proof"
+          },
+          {
+            "channel": "linkedin",
+            "strategy": "Engineering bottleneck breakdown + architectural lesson"
+          },
+          {
+            "channel": "email",
+            "strategy": "Personalized pain point + 1-click CTA"
+          }
+        ],
+        "model": "groq/qwen/qwen3.8-27b",
+        "latency_s": 3.417,
+        "ttft_ms": 140.0,
+        "prompt_tokens": 164,
+        "completion_tokens": 525,
+        "tokens": 689
+      },
+      "input": "\nYou are a Principal Growth Strategist. Decompose this marketing brief into high-impact channel angles:\n\nBrief: Launch an ultra-fast AI Gateway that r",
+      "output": "Here is the strategic decomposition for the AI Gateway launch, tailored for Enterprise CTOs with a technical, authoritative voice.\n\n### 1. Twitter / X Viral Hook\n*   **The Hook:** \"Your AI bill is 70%"
+    },
+    {
+      "span_id": "span-4",
+      "name": "Marketing:Copywriter",
+      "model": "groq/qwen/qwen3.8-27b",
+      "duration_s": 1.054,
+      "ttft_ms": 140.0,
+      "prompt_tokens": 228,
+      "completion_tokens": 591,
+      "total_tokens": 819,
+      "cost_usd": 4.1e-05,
+      "metadata": {
+        "revision": 0,
+        "model": "groq/qwen/qwen3.8-27b",
+        "latency_s": 1.054,
+        "ttft_ms": 140.0,
+        "prompt_tokens": 228,
+        "completion_tokens": 363,
+        "tokens": 591
+      },
+      "input": "\nYou are an Elite Direct-Response Copywriter. Write production-ready copy for the following channels:\n\nBrief: Launch an ultra-fast AI Gateway that red",
+      "output": "{'twitter': 'Cut AI inference costs by 70%. Zero latency. Our new Gateway uses 0ms in-memory caching to optimize your LLM stack. Stop paying for redundant tokens.\\n\\nScale smarter.\\n\\n#AIGateway', 'li"
+    },
+    {
+      "span_id": "span-5",
+      "name": "Marketing:Critic",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "approved": true,
+        "feedback": [],
+        "revisions": 1
+      },
+      "input": null,
+      "output": null
+    },
+    {
+      "span_id": "span-6",
+      "name": "Marketing:Publisher",
+      "model": "N/A",
+      "duration_s": 0.0,
+      "ttft_ms": "N/A",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0,
+      "metadata": {
+        "package": {
+          "status": "APPROVED",
+          "product_name": "HyperGateway AI",
+          "target_audience": "Enterprise CTOs",
+          "brand_voice": "Technical & Authoritative",
+          "revisions_executed": 1,
+          "assets": {
+            "twitter_x": {
+              "copy": "Cut AI inference costs by 70%. Zero latency. Our new Gateway uses 0ms in-memory caching to optimize your LLM stack. Stop paying for redundant tokens.\n\nScale smarter.\n\n#AIGateway",
+              "metrics": {
+                "char_count": 177,
+                "word_count": 28,
+                "sentence_count": 5,
+                "avg_words_per_sentence": 5.6,
+                "est_reading_time_sec": 8.0
+              }
+            },
+            "linkedin": {
+              "copy": "Your LLM bill is bleeding.\n\nIt\u2019s not just about model selection. It\u2019s about infrastructure inefficiency.\n\nMost enterprise stacks waste 30-50% of their budget on redundant, uncached inference requests.\n\nWe built a solution to stop the leak.\n\nIntroducing the Ultra-Fast AI Gateway.\n\n\ud83d\ude80 **The Problem:**\nHigh latency and bloated costs from repeated, identical prompts hitting your API endpoints.\n\n\ud83d\udee0 **The Solution:**\nA high-performance layer with 0ms in-memory caching.\n\n\u2705 **70% Cost Reduction:** Instantly serve cached responses for recurring queries.\n\u2705 **Zero Latency:** In-memory architecture eliminates network round-trips.\n\u2705 **Enterprise Ready:** Drop-in integration with your existing orchestration tools.\n\nStop paying for the same answer twice.\n\n\ud83d\udc47 **CTA:**\nBook a technical demo to see the cost savings in your specific workload. Link in comments.",
+              "metrics": {
+                "char_count": 850,
+                "word_count": 121,
+                "sentence_count": 14,
+                "avg_words_per_sentence": 8.6,
+                "est_reading_time_sec": 34.6
+              }
+            },
+            "email": {
+              "copy": "Subject: Cut inference costs by 70%\n\nYour current AI infrastructure is likely paying for the same tokens twice.\n\nOur new Ultra-Fast AI Gateway eliminates this waste using 0ms in-memory caching. By intercepting and serving repeated requests instantly, we reduce your inference spend by up to 70% without sacrificing speed. This isn't just an optimization; it's a fundamental shift in how you manage LLM overhead.\n\nStop overpaying for redundancy.\n\n[Book a Technical Demo]",
+              "metrics": {
+                "char_count": 469,
+                "word_count": 72,
+                "sentence_count": 5,
+                "avg_words_per_sentence": 14.4,
+                "est_reading_time_sec": 20.6
+              }
+            }
+          }
+        }
       },
       "input": null,
       "output": null
     }
-  ]
+  ],
+  "end_time": "2026-09-03T22:42:42+0530"
 }

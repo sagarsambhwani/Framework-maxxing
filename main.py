@@ -184,14 +184,15 @@ def run_marketing(brief: str):
 
 def run_phoenix_server():
     """Launches local Arize Phoenix visual tracing UI on http://localhost:6006."""
+    import subprocess
+    print_banner("ARIZE PHOENIX LOCAL OBSERVABILITY SERVER", "Dashboard: http://localhost:6006 | OpenTelemetry: ACTIVE")
+    print("✓ Starting Arize Phoenix at http://localhost:6006...")
+    print("Press Ctrl+C to stop the Phoenix server.\n")
+    env = os.environ.copy()
+    env["PHOENIX_PORT"] = "6006"
+    env["PHOENIX_HOST"] = "127.0.0.1"
     try:
-        import phoenix as px
-        print_banner("ARIZE PHOENIX LOCAL OBSERVABILITY SERVER", "Dashboard: http://localhost:6006 | OpenTelemetry: ACTIVE")
-        session = px.launch_app(host="127.0.0.1", port=6006)
-        print("✓ Arize Phoenix is running at http://localhost:6006")
-        print("Press Ctrl+C to stop the Phoenix server.")
-        while True:
-            time.sleep(1)
+        subprocess.run([sys.executable, "-m", "phoenix.server.main", "serve"], env=env)
     except KeyboardInterrupt:
         print("\nStopping Arize Phoenix server...")
     except Exception as e:
