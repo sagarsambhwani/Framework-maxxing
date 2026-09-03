@@ -1,171 +1,120 @@
 /**
- * app.js - Modern ChatGPT Client with Real-Time Streaming & Voice Mode
+ * ChatGPT Pro Frontend Application Logic
+ * 
+ * Manages:
+ *  1. Server-Sent Events (SSE) Token Streaming for real-time typewriter output.
+ *  2. Voice Mode: MediaRecorder audio capture with Groq Whisper Turbo STT.
+ *  3. Voice Output: Web SpeechSynthesis API for auto-spoken responses.
+ *  4. Markdown & Code Rendering: Marked.js + Highlight.js with 1-click Copy Code buttons.
+ *  5. Chat History & Session Tracking.
  */
 
-// 1. STATE & VARIABLES
+// ============================================================================
+// 1. Application State & Session Configuration
+// ============================================================================
 let currentSessionId = 'chat-' + Math.random().toString(36).substring(2, 9);
-let conversationHistory = [];
+let chatHistory = [];
 let isStreaming = false;
-let abortController = null;
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
 
-// DOM Elements
-const messagesContainer = document.getElementById('messages-container');
-const starterCardsContainer = document.getElementById('starter-cards-container');
-const promptInput = document.getElementById('prompt-input');
-const sendBtn = document.getElementById('send-btn');
-const micBtn = document.getElementById('mic-btn');
-const modelSelect = document.getElementById('model-select');
-const newChatBtn = document.getElementById('new-chat-btn');
-const clearChatBtn = document.getElementById('clear-chat-btn');
-const autoTtsToggle = document.getElementById('auto-tts-toggle');
-const guardrailsToggle = document.getElementById('guardrails-toggle');
-const headerModelBadge = document.getElementById('header-model-badge');
-const headerLatencyBadge = document.getElementById('header-latency-badge');
-const activeSessionPill = document.getElementById('active-session-pill');
-const typingIndicator = document.getElementById('typing-indicator');
-const voiceIndicator = document.getElementById('voice-indicator');
-const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
-const sidebar = document.getElementById('sidebar');
+// ============================================================================
+// 2. DOM Elements
+// ============================================================================
+const chatContainer = document.getElementById('chatContainer');
+const starterCards = document.getElementById('starterCards');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const voiceBtn = document.getElementById('voiceBtn');
+const voiceOrb = document.getElementById('voiceOrb');
+const voiceStatus = document.getElementById('voiceStatus');
+const modelSelect = document.getElementById('modelSelect');
+const guardrailToggle = document.getElementById('guardrailToggle');
+const ttsToggle = document.getElementById('ttsToggle');
+const newChatBtn = document.getElementById('newChatBtn');
 
-// Configure marked.js for syntax highlighting
-marked.setOptions({
-    highlight: function(code, lang) {
-        if (lang && hljs.getLanguage(lang)) {
-            return hljs.highlight(code, { language: lang }).value;
-        }
-        return hljs.highlightAuto(code).value;
-    },
-    breaks: true
+// Auto-adjust textarea height dynamically as the user types
+messageInput.addEventListener('input', () => {
+    messageInput.style.height = 'auto';
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + 'px';
 });
 
-// Update active session pill
-activeSessionPill.textContent = '#' + currentSessionId.substring(0, 10);
-
-// 2. MODEL BADGE UPDATE
-const MODEL_BADGES = {
-    'groq/qwen/qwen3.8-27b': { name: 'Qwen 3.8 27B', latency: '⚡ LPU 0.3s' },
-    'groq/groq/compound': { name: 'Groq Compound', latency: '🧠 Reasoning' },
-    'groq/openai/gpt-oss-120b': { name: 'GPT-OSS 120B', latency: '🚀 LPU 0.5s' },
-    'groq/allam-2-7b': { name: 'Allam 7B', latency: '⚡ 110ms Ultra' },
-    'gemini/gemma-4-31b-it': { name: 'Gemma 4 31B', latency: '🔵 Google AI' },
-    'gemini/gemini-3.6-flash': { name: 'Gemini 3.6 Flash', latency: '🌊 1M Context' },
-    'openrouter/inclusionai/ling-3.0-flash-fin:free': { name: 'Ling 3.0 Flash', latency: '🟢 OpenRouter' },
-    'openrouter/nvidia/nemotron-3.5-lightning:free': { name: 'Nemotron 3.5', latency: '🟢 OpenRouter' }
-};
-
-function updateModelHeader() {
-    const selected = modelSelect.value;
-    const meta = MODEL_BADGES[selected] || { name: selected, latency: '⚡ Active' };
-    headerModelBadge.textContent = meta.name;
-    headerLatencyBadge.textContent = meta.latency;
-}
-modelSelect.addEventListener('change', updateModelHeader);
-updateModelHeader();
-
-// 3. AUTO-RESIZE INPUT TEXTAREA
-promptInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
-});
-
-promptInput.addEventListener('keydown', function(e) {
+// Submit on Enter key (Shift+Enter for new line)
+messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        handleSendMessage();
+        sendMessage();
     }
 });
 
-// 4. STARTER CARDS CLICK
-document.querySelectorAll('.starter-card').forEach(card => {
-    card.addEventListener('click', () => {
-        const prompt = card.getAttribute('data-prompt');
-        promptInput.value = prompt;
-        handleSendMessage();
-    });
-});
+sendBtn.addEventListener('click', sendMessage);
+newChatBtn.addEventListener('click', startNewChat);
 
-// 5. NEW CHAT & CLEAR
-newChatBtn.addEventListener('click', () => {
+// ============================================================================
+// 3. New Chat & Starter Prompts
+// ============================================================================
+function startNewChat() {
+    chatHistory = [];
     currentSessionId = 'chat-' + Math.random().toString(36).substring(2, 9);
-    activeSessionPill.textContent = '#' + currentSessionId.substring(0, 10);
-    conversationHistory = [];
-    messagesContainer.innerHTML = '';
-    messagesContainer.appendChild(starterCardsContainer);
-    starterCardsContainer.style.display = 'flex';
-    promptInput.value = '';
-    promptInput.focus();
-});
+    chatContainer.innerHTML = '';
+    starterCards.style.display = 'grid';
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    window.speechSynthesis.cancel();
+}
 
-clearChatBtn.addEventListener('click', () => {
-    if (confirm('Clear current chat conversation?')) {
-        conversationHistory = [];
-        messagesContainer.innerHTML = '';
-        messagesContainer.appendChild(starterCardsContainer);
-        starterCardsContainer.style.display = 'flex';
-    }
-});
+function sendStarter(text) {
+    messageInput.value = text;
+    sendMessage();
+}
 
-// 6. TOGGLE SIDEBAR (MOBILE/COLLAPSE)
-toggleSidebarBtn.addEventListener('click', () => {
-    sidebar.classList.toggle('-ml-64');
-});
-
-// 7. SEND MESSAGE & STREAMING HANDLER
-async function handleSendMessage() {
-    const text = promptInput.value.trim();
+// ============================================================================
+// 4. Message Dispatch & SSE Streaming Handler
+// ============================================================================
+async function sendMessage() {
+    const text = messageInput.value.trim();
     if (!text || isStreaming) return;
 
-    // Hide starter cards if visible
-    if (starterCardsContainer) {
-        starterCardsContainer.style.display = 'none';
-    }
+    // Hide welcome starter cards on first message
+    starterCards.style.display = 'none';
 
-    // Reset input
-    promptInput.value = '';
-    promptInput.style.height = 'auto';
-    sendBtn.disabled = true;
-
-    // Append User Message to UI
+    // 1. Render User Message
     appendMessage('user', text);
-    conversationHistory.push({ role: 'user', content: text });
+    chatHistory.push({ role: 'user', content: text });
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
 
-    // Create Assistant Message Placeholder
-    const assistantMsgObj = createAssistantPlaceholder();
-    const contentDiv = assistantMsgObj.contentDiv;
-    const telemetryDiv = assistantMsgObj.telemetryDiv;
+    // 2. Render Assistant Placeholder Bubble with Typing Pulse
+    const botMsgDiv = appendMessage('assistant', '', true);
+    const contentDiv = botMsgDiv.querySelector('.msg-content');
 
     isStreaming = true;
-    typingIndicator.classList.remove('hidden');
-    typingIndicator.classList.add('flex');
-    contentDiv.classList.add('cursor-pulse');
+    sendBtn.disabled = true;
 
-    const startTime = performance.now();
-    let accumulatedText = '';
-    let tokenCount = 0;
-
-    abortController = new AbortController();
+    let fullResponse = '';
+    const selectedModel = modelSelect.value;
+    const guardrailsActive = guardrailToggle.checked;
 
     try {
+        // Dispatch POST request to FastAPI SSE endpoint
         const response = await fetch('/api/chat/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 prompt: text,
-                model: modelSelect.value,
+                model: selectedModel,
                 session_id: currentSessionId,
-                guardrails_enabled: guardrailsToggle.checked,
-                history: conversationHistory.slice(-8)
-            }),
-            signal: abortController.signal
+                guardrails_enabled: guardrailsActive,
+                history: chatHistory.slice(-6) // Send up to last 6 turns for context
+            })
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP Error ${response.status}`);
+            throw new Error(`HTTP Error: ${response.status}`);
         }
 
+        // Read Server-Sent Events stream chunk-by-chunk
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let buffer = '';
@@ -176,165 +125,172 @@ async function handleSendMessage() {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop(); // Keep partial line in buffer
+            buffer = lines.pop(); // Retain incomplete trailing line in buffer
 
             for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const dataStr = line.replace('data: ', '').trim();
-                    if (dataStr === '[DONE]') break;
+                const trimmed = line.trim();
+                if (!trimmed || !trimmed.startsWith('data: ')) continue;
+                
+                const dataStr = trimmed.replace('data: ', '').trim();
+                if (dataStr === '[DONE]') break;
 
-                    try {
-                        const parsed = JSON.parse(dataStr);
-                        if (parsed.chunk) {
-                            accumulatedText += parsed.chunk;
-                            tokenCount++;
-                            contentDiv.innerHTML = marked.parse(accumulatedText);
-                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                        } else if (parsed.blocked) {
-                            accumulatedText = `❌ **[Request Blocked by NeMo Guardrails]**\n\n${parsed.reason}`;
-                            contentDiv.innerHTML = marked.parse(accumulatedText);
-                        }
-                    } catch (err) {
-                        // Fallback plain text chunk
-                        accumulatedText += dataStr;
-                        contentDiv.innerHTML = marked.parse(accumulatedText);
+                try {
+                    const parsed = JSON.parse(dataStr);
+                    if (parsed.blocked) {
+                        fullResponse = `🛡️ **[Blocked by NeMo Guardrails]**\n\n*${parsed.reason}*`;
+                        renderMarkdown(contentDiv, fullResponse);
+                        break;
                     }
+                    if (parsed.chunk) {
+                        fullResponse += parsed.chunk;
+                        renderMarkdown(contentDiv, fullResponse);
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    }
+                } catch (jsonErr) {
+                    // Ignore transient chunk framing errors
                 }
             }
         }
 
-        const duration = ((performance.now() - startTime) / 1000).toFixed(2);
-        const meta = MODEL_BADGES[modelSelect.value] || { name: modelSelect.value };
-        
-        telemetryDiv.innerHTML = `
-            <div class="inline-flex items-center gap-2 text-[11px] text-gray-400 bg-chatSidebar px-2.5 py-1 rounded-full border border-chatBorder mt-2">
-                <span>⚡ <b>${duration}s</b></span> • 
-                <span>🤖 ${meta.name}</span> • 
-                <span>🛡️ ${guardrailsToggle.checked ? 'NeMo Guardrails Active' : 'Off'}</span>
-            </div>
-        `;
+        chatHistory.push({ role: 'assistant', content: fullResponse });
 
-        conversationHistory.push({ role: 'assistant', content: accumulatedText });
-
-        // Auto Text-to-Speech if enabled
-        if (autoTtsToggle.checked && accumulatedText) {
-            speakText(accumulatedText);
+        // Auto-speak response if TTS toggle is active
+        if (ttsToggle.checked && fullResponse) {
+            speakText(fullResponse);
         }
 
     } catch (err) {
-        if (err.name === 'AbortError') {
-            contentDiv.innerHTML += '<p class="text-xs text-yellow-400 mt-2"><i>[Generation stopped by user]</i></p>';
-        } else {
-            contentDiv.innerHTML = `<p class="text-xs text-red-400 mt-2">❌ Error: ${err.message}</p>`;
-        }
+        contentDiv.innerHTML = `<span class="text-red-400">❌ Error connecting to server: ${err.message}</span>`;
     } finally {
-        contentDiv.classList.remove('cursor-pulse');
         isStreaming = false;
         sendBtn.disabled = false;
-        typingIndicator.classList.add('hidden');
-        typingIndicator.classList.remove('flex');
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // Remove typing pulse indicator
+        const pulse = botMsgDiv.querySelector('.typing-pulse');
+        if (pulse) pulse.remove();
     }
 }
 
-// 8. DOM MESSAGE HELPERS
-function appendMessage(role, text) {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'flex gap-3 text-sm ' + (role === 'user' ? 'justify-end' : 'justify-start');
+// ============================================================================
+// 5. DOM Rendering & Markdown Formatting
+// ============================================================================
+function appendMessage(role, text, isPending = false) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex gap-4 p-4 rounded-xl ${role === 'user' ? 'bg-[#212121]' : 'bg-transparent'}`;
 
-    if (role === 'user') {
-        msgDiv.innerHTML = `
-            <div class="max-w-[80%] bg-chatInput border border-chatBorder text-gray-100 rounded-2xl px-4 py-3 shadow-md">
-                ${escapeHtml(text)}
-            </div>
-            <div class="w-7 h-7 rounded-full bg-chatBorder flex items-center justify-center text-xs text-gray-300 font-bold shrink-0">
-                <i class="fa-solid fa-user"></i>
-            </div>
-        `;
-    }
-    messagesContainer.appendChild(msgDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
+    const avatar = document.createElement('div');
+    avatar.className = `w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+        role === 'user' ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white'
+    }`;
+    avatar.innerText = role === 'user' ? 'U' : 'AI';
 
-function createAssistantPlaceholder() {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'flex gap-3 text-sm justify-start w-full';
+    const body = document.createElement('div');
+    body.className = 'flex-1 overflow-hidden';
 
-    const id = 'assistant-content-' + Date.now();
-    const telId = 'assistant-tel-' + Date.now();
+    const author = document.createElement('div');
+    author.className = 'font-semibold text-xs text-gray-400 mb-1';
+    author.innerText = role === 'user' ? 'You' : 'ChatGPT Pro';
 
-    msgDiv.innerHTML = `
-        <div class="w-7 h-7 rounded-full bg-chatAccent flex items-center justify-center text-xs text-white font-bold shrink-0 shadow-md">
-            <i class="fa-solid fa-bolt"></i>
-        </div>
-        <div class="flex-1 max-w-[85%]">
-            <div id="${id}" class="text-gray-200 leading-relaxed space-y-2"></div>
-            <div id="${telId}"></div>
-        </div>
-    `;
-    messagesContainer.appendChild(msgDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const content = document.createElement('div');
+    content.className = 'msg-content text-gray-200 text-sm leading-relaxed';
 
-    return {
-        contentDiv: document.getElementById(id),
-        telemetryDiv: document.getElementById(telId)
-    };
-}
-
-function escapeHtml(text) {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// 9. VOICE MODE: SPEECH-TO-TEXT (MICROPHONE RECORDING)
-micBtn.addEventListener('click', async () => {
-    if (isRecording) {
-        stopAudioRecording();
+    if (isPending) {
+        content.innerHTML = '<span class="typing-pulse"></span>';
     } else {
-        startAudioRecording();
+        renderMarkdown(content, text);
     }
-});
 
-async function startAudioRecording() {
+    body.appendChild(author);
+    body.appendChild(content);
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(body);
+
+    chatContainer.appendChild(wrapper);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+    return wrapper;
+}
+
+function renderMarkdown(element, markdownText) {
+    // Configure Marked.js options
+    marked.setOptions({
+        highlight: function(code, lang) {
+            const language = highlight.getLanguage(lang) ? lang : 'plaintext';
+            return highlight.highlight(code, { language }).value;
+        },
+        breaks: true,
+        gfm: true
+    });
+
+    element.innerHTML = marked.parse(markdownText);
+
+    // Attach 1-click copy buttons to code blocks
+    element.querySelectorAll('pre').forEach((pre) => {
+        if (!pre.querySelector('.copy-code-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'copy-code-btn';
+            btn.innerText = 'Copy code';
+            btn.onclick = () => {
+                const code = pre.querySelector('code')?.innerText || pre.innerText;
+                navigator.clipboard.writeText(code);
+                btn.innerText = '✓ Copied!';
+                setTimeout(() => { btn.innerText = 'Copy code'; }, 2000);
+            };
+            pre.style.position = 'relative';
+            pre.appendChild(btn);
+        }
+    });
+}
+
+// ============================================================================
+// 6. Voice Mode: MediaRecorder STT & Web SpeechSynthesis TTS
+// ============================================================================
+voiceBtn.addEventListener('click', toggleVoiceRecording);
+
+async function toggleVoiceRecording() {
+    if (!isRecording) {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+}
+
+async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
 
-        mediaRecorder.ondataavailable = event => {
-            if (event.data.size > 0) audioChunks.push(event.data);
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
         };
 
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            await sendAudioForTranscription(audioBlob);
             stream.getTracks().forEach(track => track.stop());
-            await sendAudioToTranscribe(audioBlob);
         };
 
         mediaRecorder.start();
         isRecording = true;
-        micBtn.classList.add('recording-pulse');
-        voiceIndicator.classList.remove('hidden');
-        voiceIndicator.classList.add('flex');
+        voiceBtn.classList.add('bg-red-600', 'recording-active');
+        voiceOrb.classList.remove('hidden');
+        voiceStatus.innerText = 'Listening... Speak now';
     } catch (err) {
-        alert('Microphone access denied or not available: ' + err.message);
+        alert('Microphone access denied or unavailable: ' + err.message);
     }
 }
 
-function stopAudioRecording() {
+function stopRecording() {
     if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
         isRecording = false;
-        micBtn.classList.remove('recording-pulse');
-        voiceIndicator.classList.add('hidden');
-        voiceIndicator.classList.remove('flex');
+        voiceBtn.classList.remove('bg-red-600', 'recording-active');
+        voiceOrb.classList.add('hidden');
+        voiceStatus.innerText = 'Transcribing audio with Groq Whisper Turbo...';
     }
 }
 
-async function sendAudioToTranscribe(audioBlob) {
-    typingIndicator.classList.remove('hidden');
-    typingIndicator.classList.add('flex');
-    typingIndicator.innerHTML = '<i class="fa-solid fa-microphone-lines animate-pulse text-xs"></i> Transcribing with Groq Whisper Turbo...';
-
+async function sendAudioForTranscription(audioBlob) {
     const formData = new FormData();
     formData.append('file', audioBlob, 'speech.wav');
 
@@ -343,36 +299,30 @@ async function sendAudioToTranscribe(audioBlob) {
             method: 'POST',
             body: formData
         });
+
+        if (!res.ok) throw new Error(`Transcription HTTP error: ${res.status}`);
         const data = await res.json();
+
         if (data.text) {
-            promptInput.value = data.text;
-            handleSendMessage();
+            messageInput.value = data.text;
+            voiceStatus.innerText = `Transcribed in ${data.duration_s}s`;
+            sendMessage();
+        } else {
+            voiceStatus.innerText = 'No speech recognized.';
         }
     } catch (e) {
-        alert('Transcription failed: ' + e.message);
-    } finally {
-        typingIndicator.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin text-xs"></i> Generating tokens on terminal...';
-        typingIndicator.classList.add('hidden');
-        typingIndicator.classList.remove('flex');
+        voiceStatus.innerText = 'Voice transcription error: ' + e.message;
     }
 }
 
-// 10. VOICE MODE: TEXT-TO-SPEECH (BROWSER TTS)
 function speakText(text) {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
+    // Strip markdown formatting characters for natural speech synthesis
+    const cleanText = text.replace(/[*#`_~\[\]]/g, '').trim();
+    if (!cleanText) return;
 
-    // Clean markdown and code out of speech text
-    const cleanText = text
-        .replace(/```[\s\S]*?```/g, 'Code snippet omitted.')
-        .replace(/[*#_`]/g, '')
-        .substring(0, 400);
-
+    window.speechSynthesis.cancel(); // Stop any currently playing audio
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
     window.speechSynthesis.speak(utterance);
 }
-
-// Attach Send Button
-sendBtn.addEventListener('click', handleSendMessage);

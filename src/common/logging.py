@@ -1,8 +1,22 @@
-"""Rich Colored Terminal Logging Utilities."""
+"""Rich Colored Terminal Logging & Console Visualization.
+
+Provides standardized, ANSI-colored, timestamped logging for all system events:
+    - Incoming web / agent requests
+    - NeMo Guardrail validation outcomes (Passed vs Blocked)
+    - Multi-provider gateway routing decisions (Groq, Gemini, OpenRouter)
+    - Streaming latency metrics (TTFT, Total Duration, Tokens/sec)
+    - Langfuse cloud observability synchronization events
+
+Why this module exists:
+    Streamlit and background frameworks often buffer standard stdout or bury
+    logs in UI widgets. This logger guarantees unbuffered, immediate, and
+    visually structured output in the developer's terminal.
+"""
+
 import sys
 import time
 
-# Ensure UTF-8 on Windows terminals
+# Ensure UTF-8 output encoding across Windows PowerShell and CMD terminals
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -12,6 +26,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 class Colors:
+    """ANSI terminal escape color codes for structured log output."""
     HEADER = "\033[95m"
     BLUE = "\033[94m"
     CYAN = "\033[96m"
@@ -25,13 +40,25 @@ class Colors:
 
 
 def term_log(tag: str, message: str, color: str = Colors.CYAN):
-    """Prints a styled, timestamped log line immediately to terminal."""
+    """Outputs a timestamped, color-coded log message immediately to terminal stdout.
+
+    Args:
+        tag: Category identifier (e.g. '[REQUEST]', '[GUARDRAIL]', '[ROUTER]', '[STREAM]').
+        message: Informational details, latency, model names, or token speeds.
+        color: ANSI color code from the Colors class (defaults to Cyan).
+    """
     timestamp = time.strftime("%H:%M:%S")
+    # flush=True ensures real-time emission without OS buffer delays
     print(f"{Colors.BOLD}[{timestamp}]{Colors.END} {color}{tag}{Colors.END} {message}", flush=True)
 
 
 def print_banner(title: str, subtitle: str = ""):
-    """Prints a clean CLI banner."""
+    """Renders a visual CLI banner demarcating major run modes or pipeline starts.
+
+    Args:
+        title: Main header text.
+        subtitle: Optional secondary description or session details.
+    """
     print("\n" + "=" * 80, flush=True)
     print(f"{Colors.BOLD}{Colors.GREEN}🚀 {title}{Colors.END}", flush=True)
     if subtitle:

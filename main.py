@@ -1,9 +1,22 @@
 """Unified CLI Entrypoint for the Framework-maxxing Architecture.
 
-Usage:
-    python main.py server               # Launch FastAPI ChatGPT Web UI on http://localhost:8080
-    python main.py agent "your query"  # Run LangGraph Autonomous Research Agent
-    python main.py benchmark           # Run Multi-Provider Speed & Latency Benchmark
+This module provides a single, polished command-line interface for running:
+    1. `python main.py server`
+       Launches the FastAPI ChatGPT Pro Web UI with Server-Sent Events (SSE) streaming,
+       Groq Whisper Turbo voice mode, and live colored terminal logging on port 8080.
+
+    2. `python main.py agent "your query"`
+       Runs the LangGraph Stateful Autonomous Research Agent in terminal mode with
+       automated safety evaluation, planning, tool dispatching, and report synthesis.
+
+    3. `python main.py benchmark`
+       Executes comparative speed, latency, and TTFT benchmarks across Groq LPUs,
+       Google Gemini, and OpenRouter endpoints.
+
+Usage Examples:
+    .venv\\Scripts\\python.exe main.py server
+    .venv\\Scripts\\python.exe main.py agent "Design an AI Gateway with caching"
+    .venv\\Scripts\\python.exe main.py benchmark
 """
 
 import sys
@@ -13,7 +26,7 @@ import uuid
 import time
 import uvicorn
 
-# Ensure UTF-8 on Windows
+# Ensure proper Unicode / UTF-8 rendering on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -26,7 +39,7 @@ from src.common.logging import term_log, print_banner, Colors
 
 
 def run_server():
-    """Launches the FastAPI Web Server and ChatGPT Interface."""
+    """Starts the FastAPI Web Application & ChatGPT dark-themed interface."""
     from src.server.app import create_app
     app = create_app()
 
@@ -34,17 +47,23 @@ def run_server():
         "CHATGPT PRO FASTAPI + JAVASCRIPT SERVER",
         f"Web UI: http://localhost:{settings.SERVER_PORT} | Terminal Logs: ACTIVE"
     )
+    # Start Uvicorn ASGI server on configured port
     uvicorn.run(app, host="127.0.0.1", port=settings.SERVER_PORT, log_level="warning")
 
 
 def run_agent(query: str):
-    """Executes the LangGraph Autonomous Research Agent."""
+    """Executes the LangGraph Autonomous Research Agent workflow from the terminal.
+
+    Args:
+        query: Research question or instruction to investigate.
+    """
     from src.agent.graph import research_agent
     session_id = f"agent-{uuid.uuid4().hex[:6]}"
 
     print_banner("LANGGRAPH AUTONOMOUS RESEARCH AGENT", f"Query: '{query}' | Session: {session_id}")
     start_t = time.time()
 
+    # Construct initial state matching ResearchState schema
     initial_state = {
         "query": query,
         "session_id": session_id,
@@ -56,17 +75,19 @@ def run_agent(query: str):
         "iteration_count": 0
     }
 
+    # Execute graph state transitions: Guardrail -> Planner -> Executor -> Synthesizer
     final_state = research_agent.invoke(initial_state)
     dur = round(time.time() - start_t, 2)
 
+    # Print structured execution breakdown
     print("\n" + "=" * 80)
     print("📊 AGENT EXECUTION SUMMARY")
     print("=" * 80)
     if final_state["guardrail_allowed"]:
         print(f"🛡️  NeMo Guardrails: {Colors.GREEN}PASSED{Colors.END}")
         print("📋 Planned Tasks   :")
-        for idx, s in enumerate(final_state["plan_steps"], 1):
-            print(f"     Step {idx}: [{s['tool']}] -> {s['input']}")
+        for idx, step in enumerate(final_state["plan_steps"], 1):
+            print(f"     Step {idx}: [{step['tool']}] -> {step['input']}")
         print(f"\n🔍 Tools Executed  : {len(final_state['findings'])} tools completed.")
         print(f"\n📝 Final Report    :\n\n{final_state['final_report']}")
         print(f"\n⏱️  Total Duration   : {dur}s | Traces synced to Langfuse Cloud")
@@ -77,19 +98,17 @@ def run_agent(query: str):
 
 
 def run_benchmark():
-    """Runs latency benchmarks across Groq, Google Gemini, and OpenRouter."""
+    """Executes comparative latency benchmarks across all supported cloud providers."""
     from src.gateway.router import gateway
     print_banner("MULTI-PROVIDER SPEED & LATENCY BENCHMARK", "Testing Groq LPU vs Google Gemini vs OpenRouter")
 
     benchmarks = [
         ("groq/qwen/qwen3.8-27b", "⚡ Groq LPU (Qwen 3.8 27B)"),
-        ("groq/groq/compound", "🧠 Groq Compound Reasoning"),
         ("gemini/gemma-4-31b-it", "🔵 Google Gemini (Gemma 31B)"),
         ("openrouter/inclusionai/ling-3.0-flash-fin:free", "🟢 OpenRouter (Ling 3.0 Flash)")
     ]
 
     for model_slug, label in benchmarks:
-        t0 = time.time()
         res = gateway.complete(
             model=model_slug,
             messages=[{"role": "user", "content": "Explain token latency in 1 sentence."}],
@@ -102,18 +121,26 @@ def run_benchmark():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Framework-maxxing AI Architecture CLI")
+    """Parses command-line arguments and dispatches to appropriate handler."""
+    parser = argparse.ArgumentParser(
+        description="Framework-maxxing AI Gateway & Autonomous Agent CLI"
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
-    # Server command
-    subparsers.add_parser("server", help="Launch FastAPI Web Server")
+    # 1. 'server' subcommand
+    subparsers.add_parser("server", help="Launch FastAPI Web Server on http://localhost:8080")
 
-    # Agent command
-    agent_parser = subparsers.add_parser("agent", help="Run LangGraph Research Agent")
-    agent_parser.add_argument("query", nargs="?", default="Evaluate multi-cloud LLM gateway latency and caching", help="Research question")
+    # 2. 'agent' subcommand
+    agent_parser = subparsers.add_parser("agent", help="Run LangGraph Autonomous Research Agent")
+    agent_parser.add_argument(
+        "query",
+        nargs="?",
+        default="Evaluate multi-cloud LLM gateway latency and caching",
+        help="Research query text"
+    )
 
-    # Benchmark command
-    subparsers.add_parser("benchmark", help="Run multi-provider speed benchmark")
+    # 3. 'benchmark' subcommand
+    subparsers.add_parser("benchmark", help="Run multi-provider speed & latency benchmark")
 
     args = parser.parse_args()
 
@@ -124,7 +151,7 @@ def main():
     elif args.command == "benchmark":
         run_benchmark()
     else:
-        # Default behavior if no argument: launch server
+        # Default behavior: start server
         run_server()
 
 
