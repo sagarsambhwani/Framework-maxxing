@@ -74,7 +74,14 @@ except Exception:
     pass
 
 import litellm
-from litellm import Router
+from litellm import Router, completion, acompletion
+from litellm.exceptions import APIError, RateLimitError, ServiceUnavailableError, Timeout
+import logging
+
+litellm.drop_params = True
+litellm.set_verbose = False
+litellm.suppress_debug_info = True
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 
 from src.common.config import settings
 from src.common.mock_provider import MockResponse, generate_mock_plan, generate_mock_synthesis

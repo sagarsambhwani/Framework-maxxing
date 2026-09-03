@@ -29,6 +29,9 @@ os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
 
 litellm.drop_params = True
 litellm.set_verbose = False
+litellm.suppress_debug_info = True
+import logging
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 
 
 def print_header(title: str):

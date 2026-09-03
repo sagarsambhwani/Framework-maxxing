@@ -101,10 +101,13 @@ def log_langfuse_event(name: str, session_id: str, metadata: Dict[str, Any], inp
 # ==============================================================================
 # 3. LITELLM GATEWAY & OPENROUTER ROUTING
 # ==============================================================================
+import logging
 import litellm
 
 litellm.drop_params = True
 litellm.set_verbose = False
+litellm.suppress_debug_info = True
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 
 
 def call_llm(model: str, messages: List[Dict[str, str]], temperature: float = 0.2, max_tokens: int = 1000) -> str:
