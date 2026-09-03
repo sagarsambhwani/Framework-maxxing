@@ -1,4 +1,4 @@
-"""Pipeline package initialization."""
+"""Unified Research Pipeline Package."""
 from src.pipeline.runner import UnifiedResearchPipeline, run_pipeline
 
 __all__ = ["UnifiedResearchPipeline", "run_pipeline"]

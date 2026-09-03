@@ -1,60 +1,49 @@
-"""Centralized Configuration Settings."""
+"""Centralized Configuration and Settings via Pydantic."""
 import os
-from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 from pydantic import Field
-
-# Base Directory of AIPoc
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
+        env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
 
-    # OpenRouter & LiteLLM Settings
-    OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API Key")
-    OPENROUTER_BASE_URL: str = Field(default="https://openrouter.ai/api/v1", description="OpenRouter Base URL")
-    LITELLM_PROXY_HOST: str = Field(default="127.0.0.1", description="LiteLLM Host")
-    LITELLM_PROXY_PORT: int = Field(default=4000, description="LiteLLM Port")
-    LITELLM_MASTER_KEY: str = Field(default="sk-litellm-master-key-poc", description="LiteLLM Master Key")
+    # Multi-Provider API Keys
+    OPENROUTER_API_KEY: str = Field(default="")
+    OPENROUTER_BASE_URL: str = Field(default="https://openrouter.ai/api/v1")
+    GEMINI_API_KEY: str = Field(default="")
+    GROQ_API_KEY: str = Field(default="")
 
-    # Default Models
-    PRIMARY_MODEL: str = Field(default="openrouter/inclusionai/ling-3.0-flash-fin:free")
-    FALLBACK_MODEL: str = Field(default="openrouter/meta-llama/llama-3.3-70b-instruct:free")
-    PLANNER_MODEL: str = Field(default="openrouter/inclusionai/ling-3.0-flash-fin:free")
-    SYNTHESIS_MODEL: str = Field(default="openrouter/inclusionai/ling-3.0-flash-fin:free")
+    # Gateway & Proxy Settings
+    LITELLM_PROXY_HOST: str = Field(default="127.0.0.1")
+    LITELLM_PROXY_PORT: int = Field(default=4000)
+    LITELLM_MASTER_KEY: str = Field(default="sk-litellm-master-key")
+    SERVER_PORT: int = Field(default=8080)
 
-    # Langfuse Settings
-    LANGFUSE_PUBLIC_KEY: str = Field(default="pk-lf-mock-key-12345")
-    LANGFUSE_SECRET_KEY: str = Field(default="sk-lf-mock-key-12345")
+    # Model Defaults
+    PRIMARY_MODEL: str = Field(default="groq/qwen/qwen3.8-27b")
+    FALLBACK_MODEL: str = Field(default="openrouter/inclusionai/ling-3.0-flash-fin:free")
+    REASONING_MODEL: str = Field(default="groq/groq/compound")
+    FAST_GUARD_MODEL: str = Field(default="groq/meta-llama/llama-prompt-guard-2-86m")
+
+    # Langfuse Observability
+    LANGFUSE_PUBLIC_KEY: str = Field(default="")
+    LANGFUSE_SECRET_KEY: str = Field(default="")
     LANGFUSE_HOST: str = Field(default="https://cloud.langfuse.com")
-    LANGFUSE_BASE_URL: str = Field(default="https://cloud.langfuse.com")
     LANGFUSE_ENABLED: bool = Field(default=True)
 
     # NeMo Guardrails
-    GUARDRAILS_CONFIG_PATH: str = Field(default=str(BASE_DIR / "config" / "nemoguardrails"))
+    GUARDRAILS_CONFIG_PATH: str = Field(default="./config/nemoguardrails")
     GUARDRAILS_ENABLED: bool = Field(default=True)
 
-    # Agent & Tool Settings
+    # Agent Configurations
     MAX_RESEARCH_STEPS: int = Field(default=4)
     ENABLE_LIVE_WEB_SEARCH: bool = Field(default=True)
     SIMULATION_FALLBACK: bool = Field(default=True)
 
 
 settings = Settings()
-
-# Ensure OpenRouter API key is synced into environment for libraries expecting OPENROUTER_API_KEY / OPENAI_API_KEY
-if settings.OPENROUTER_API_KEY:
-    os.environ["OPENROUTER_API_KEY"] = settings.OPENROUTER_API_KEY
-    # OpenRouter operates with OpenAI compatible format
-    os.environ["OPENAI_API_BASE"] = settings.OPENROUTER_BASE_URL
-if settings.LANGFUSE_PUBLIC_KEY:
-    host = settings.LANGFUSE_BASE_URL or settings.LANGFUSE_HOST
-    os.environ["LANGFUSE_PUBLIC_KEY"] = settings.LANGFUSE_PUBLIC_KEY
-    os.environ["LANGFUSE_SECRET_KEY"] = settings.LANGFUSE_SECRET_KEY
-    os.environ["LANGFUSE_HOST"] = host
-    os.environ["LANGFUSE_BASEURL"] = host

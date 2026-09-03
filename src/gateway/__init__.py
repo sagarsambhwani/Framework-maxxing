@@ -1,4 +1,4 @@
-"""Gateway package initialization."""
-from src.gateway.router import LiteLLMRoutingGateway, get_gateway
+"""Multi-Provider Gateway Package."""
+from src.gateway.router import MultiProviderGateway, gateway
 
-__all__ = ["LiteLLMRoutingGateway", "get_gateway"]
+__all__ = ["MultiProviderGateway", "gateway"]

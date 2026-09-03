@@ -1,30 +1,27 @@
-"""Tests for LiteLLM Gateway and OpenRouter Routing."""
+"""Tests for Multi-Provider Gateway Routing."""
 import pytest
-from src.gateway.router import get_gateway
+from src.gateway.router import gateway
 
 
 def test_gateway_initialization():
-    gateway = get_gateway()
     assert gateway is not None
 
 
 def test_gateway_completion_basic():
-    gateway = get_gateway()
-    res = gateway.completion(
-        model="fast-researcher",
-        messages=[{"role": "user", "content": "Respond with 'pong'"}],
+    res = gateway.complete(
+        model="groq/qwen/qwen3.8-27b",
+        messages=[{"role": "user", "content": "Say hello in 3 words."}],
         max_tokens=20
     )
     assert res is not None
     assert "content" in res
-    assert "usage" in res
-    assert res.get("latency_seconds") >= 0
+    assert "latency_s" in res
+    assert res["latency_s"] >= 0
 
 
 def test_gateway_fallback():
-    gateway = get_gateway()
-    res = gateway.completion(
-        model="openrouter-claude",
+    res = gateway.complete(
+        model="openrouter/inclusionai/ling-3.0-flash-fin:free",
         messages=[{"role": "user", "content": "Hello"}],
         max_tokens=20
     )

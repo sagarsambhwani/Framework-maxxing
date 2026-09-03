@@ -1,5 +1,4 @@
-"""Observability package initialization."""
-from src.observability.tracer import LangfuseTracer, get_tracer, observe_step
-from src.observability.metrics import MetricsCollector
+"""Langfuse Cloud Observability Package."""
+from src.observability.tracer import ObservabilityTracer, tracer
 
-__all__ = ["LangfuseTracer", "get_tracer", "observe_step", "MetricsCollector"]
+__all__ = ["ObservabilityTracer", "tracer"]

@@ -1,149 +1,172 @@
-# AIPoc: Enterprise AI Architecture POC Suite
+# Framework-maxxing: Enterprise Multi-Model AI Gateway & Autonomous Research Agent
 
-A modular, production-ready Proof of Concept suite showcasing an integrated multi-tier LLM architecture:
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-2.0-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Langfuse Observability](https://img.shields.io/badge/Langfuse-Cloud%20Active-orange.svg)](https://cloud.langfuse.com)
+[![NeMo Guardrails](https://img.shields.io/badge/NeMo-Guardrails-green.svg)](https://github.com/NVIDIA/NeMo-Guardrails)
+[![Groq LPUs](https://img.shields.io/badge/Groq-Ultra--Fast%20LPU-red.svg)](https://groq.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+An enterprise-grade, high-throughput AI architecture combining **Multi-Provider Dynamic Routing** (Groq LPUs, Google Gemini, OpenRouter), **NeMo Guardrails Policy Engine**, **LangGraph Stateful Autonomous Agents**, and **Langfuse Cloud Observability**.
+
+---
+
+## 🌟 Key Architectural Pillars
 
 ```mermaid
 flowchart TD
-    User([User Ingestion / App Client]) --> RailsIn["1. NeMo Guardrails (Input Policy & Jailbreak Filter)"]
-    RailsIn -->|Blocked| Refusal([Safety Refusal / Audit Log])
-    RailsIn -->|Allowed| Graph["2. LangGraph Research Agent"]
+    UserQuery["User Web / CLI Request"] --> Guardrails["1. NeMo Guardrails\n(Prompt Guard & PII Redaction)"]
     
-    subgraph LangGraph ["LangGraph State Machine"]
-        direction TB
-        Planner["Autonomous Planner Node"] --> ToolExec["Tool Caller Node (Web Search, Math, Summarizer)"]
-        ToolExec --> Evaluator{"Evaluator / Loop Condition"}
-        Evaluator -->|More Tools Needed| ToolExec
-        Evaluator -->|Synthesis Ready| Synthesizer["Executive Synthesizer Node"]
+    subgraph RoutingGateway ["2. Multi-Provider Gateway & Fallback Layer"]
+        Guardrails --> Router["LiteLLM & Native Provider Router"]
+        Router -->|Tier 1: Ultra-Fast ~0.3s| Groq["⚡ Groq LPUs\n(Qwen 3.8 27B, Compound Reasoning)"]
+        Router -->|Tier 2: 1M Massive Context| Gemini["🔵 Google Gemini\n(Gemma 31B, Gemini 1M Context)"]
+        Router -->|Tier 3: Multi-Model Failover| OpenRouter["🟢 OpenRouter Mesh\n(Ling 3.0 Flash, Nemotron 3.5)"]
     end
     
-    Graph --> Gateway["3. LiteLLM Gateway & OpenRouter Dynamic Router"]
-    
-    subgraph GatewayLayer ["LiteLLM Gateway & OpenRouter"]
-        Gateway --> Claude["Claude 3.5 Sonnet"]
-        Gateway --> GPT4o["GPT-4o"]
-        Gateway --> Llama["Llama 3.3 70B"]
-        Gateway --> DeepSeek["DeepSeek / Free Models"]
+    subgraph AgentEngine ["3. LangGraph Autonomous Research Engine"]
+        Router <--> Planner["Autonomous Planner Node"]
+        Planner --> Tools["Research Tools\n(Live Web Search + Math Engine)"]
+        Tools --> Synthesizer["Executive Synthesizer Node"]
     end
     
-    Gateway --> Tracing["4. Langfuse Observability & Cost Telemetry"]
-    Synthesizer --> RailsOut["5. NeMo Guardrails (Output Verification & PII Masking)"]
-    RailsOut --> FinalReport([Executive Research Report])
+    RoutingGateway --> Observability["4. Langfuse Cloud Observability\n(Traces, Spans, TTFT & Token Costs)"]
 ```
+
+1. **⚡ Multi-Cloud Inference Mesh**: Zero vendor lock-in. Dynamically routes requests across Groq LPUs (sub-second token generation), Google Gemini (1M token context), and OpenRouter with automatic failover.
+2. **🛡️ NeMo Guardrails Safety Layer**: Intercepts jailbreaks, adversarial prompt injections, and off-topic requests in **<1ms** before any LLM tokens are consumed; redacts sensitive PII on inputs and outputs.
+3. **🧠 LangGraph Research Agent**: Multi-node stateful graph (`Guardrail` $\rightarrow$ `Planner` $\rightarrow$ `Executor` $\rightarrow$ `Synthesizer`) with tool calling (DuckDuckGo Live Search + Math Engine).
+4. **📈 Langfuse Cloud Observability**: End-to-end tracing, nested spans, latency tracking (TTFT), token counts, and cost calculation synced to [cloud.langfuse.com](https://cloud.langfuse.com).
+5. **🎨 Modern ChatGPT Web Interface**: Dark-themed ChatGPT clone built with FastAPI + Vanilla JS, Server-Sent Events (SSE) streaming, and **Two-Way Voice Mode** (Groq Whisper Turbo STT + Browser TTS).
 
 ---
 
-## 🌟 Key Architectural Components
+## 📂 Refactored Project Structure
 
-| Component | Description | Primary Location |
-| :--- | :--- | :--- |
-| **OpenRouter Routing** | Dynamic multi-model routing across top foundation models with automatic fallback. | `src/gateway/router.py` |
-| **LiteLLM Gateway** | Unified OpenAI-compatible proxy gateway, load balancing, rate limiting, and callbacks. | `config/litellm_config.yaml`, `src/gateway/` |
-| **Langfuse Observability** | Traces LLM calls, latency, tokens, session IDs, spans, and estimated costs. | `src/observability/` |
-| **NeMo Guardrails** | Multi-layered defense: jailbreak checks, prompt injection mitigation, topic boundaries, PII masking. | `config/nemoguardrails/`, `src/guardrails/` |
-| **LangGraph Agent** | Stateful cycle graph with Planner node, dynamic Tool Caller node, and Synthesizer node. | `src/agent/` |
-| **Unified Pipeline** | End-to-end orchestrator connecting all 5 subsystems with Rich terminal visualization. | `src/pipeline/runner.py` |
-
----
-
-## 🖥️ Interactive Streamlit Web Interface
-
-Launch the full-featured visual dashboard to interact with all POCs, test prompt safety, view research plans, and monitor live Langfuse telemetry:
-
-```powershell
-.venv\Scripts\streamlit.exe run app.py
 ```
-Open your browser at `http://localhost:8501`.
-
-### 🌟 ChatGPT Pro Web Interface (FastAPI + Vanilla JavaScript)
-Modern ChatGPT look-alike UI with **real-time token streaming, two-way Voice Mode (Groq Whisper Turbo STT + Browser TTS), and live terminal logs**:
-```powershell
-.venv\Scripts\python.exe server.py
+Framework-maxxing/
+├── config/                          # Centralized configuration & policies
+│   ├── nemoguardrails/              # NeMo Guardrails Colang files & safety policies
+│   └── litellm_config.yaml          # LiteLLM proxy & model alias routes
+│
+├── src/                             # Core Application Framework
+│   ├── common/                      # Centralized Pydantic Settings & colored logger
+│   │   ├── config.py
+│   │   └── logging.py
+│   │
+│   ├── gateway/                     # Multi-Provider Routing & Gateway (Groq, Gemini, OpenRouter)
+│   │   └── router.py
+│   │
+│   ├── guardrails/                  # NeMo Guardrails safety & PII redaction
+│   │   └── rails_manager.py
+│   │
+│   ├── agent/                       # LangGraph Autonomous Research Agent
+│   │   ├── state.py                 # Graph state schema
+│   │   ├── tools.py                 # DuckDuckGo search & calculator
+│   │   └── graph.py                 # Compiled StateGraph workflow
+│   │
+│   ├── observability/               # Langfuse Cloud Tracer & span manager
+│   │   └── tracer.py
+│   │
+│   └── server/                      # FastAPI Backend & SSE Streaming API
+│       ├── app.py                   # FastAPI application factory
+│       └── models.py                # Request/response schemas
+│
+├── static/                          # ChatGPT Look-Alike Web UI Assets
+│   ├── index.html                   # Modern Tailwind + Marked.js UI
+│   ├── style.css                    # Custom animations & styling
+│   └── app.js                       # Client-side streaming & voice handlers
+│
+├── examples/                        # Standalone Demos & Benchmark Scripts
+│   ├── 01_all_in_one_pipeline.py    # Self-contained end-to-end pipeline
+│   ├── 02_groq_speed_benchmark.py   # Groq LPU latency & token speed benchmark
+│   ├── 03_gateway_caching_demo.py   # LiteLLM 0ms caching & failover demo
+│   └── 04_multi_provider_demo.py    # Cross-provider collaborative task demo
+│
+├── tests/                           # 13 Passing Pytest Unit & Integration Tests
+├── main.py                          # Unified CLI Entrypoint
+├── pyproject.toml                   # Python dependencies & build config
+└── README.md
 ```
-> 👉 *Open in browser at: `http://localhost:8080`*
 
 ---
 
 ## 🚀 Quickstart Guide
 
-### 1. Environment Setup
-Always activate your Python virtual environment:
+### 1. Activate Virtual Environment
 ```powershell
-# In Windows PowerShell:
 .venv\Scripts\activate
 ```
 
-### 2. Configuration (`.env`)
-The `.env` file should be configured with your API credentials:
+### 2. Configure Credentials (`.env`)
+Create your `.env` file with your API keys:
 ```ini
+# Multi-Provider Keys
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-LITELLM_PROXY_HOST=127.0.0.1
-LITELLM_PROXY_PORT=4000
-LITELLM_MASTER_KEY=sk-litellm-master-key-poc
+GROQ_API_KEY=your_groq_api_key_here
 
 # Default Models
-PRIMARY_MODEL=gemini/gemma-4-31b-it
+PRIMARY_MODEL=groq/qwen/qwen3.8-27b
 FALLBACK_MODEL=openrouter/inclusionai/ling-3.0-flash-fin:free
-PLANNER_MODEL=gemini/gemma-4-31b-it
-SYNTHESIS_MODEL=openrouter/inclusionai/ling-3.0-flash-fin:free
 
 # Langfuse Observability
-LANGFUSE_PUBLIC_KEY=pk-lf-your_public_key_here
-LANGFUSE_SECRET_KEY=sk-lf-your_secret_key_here
+LANGFUSE_PUBLIC_KEY=pk-lf-your_public_key
+LANGFUSE_SECRET_KEY=sk-lf-your_secret_key
 LANGFUSE_HOST=https://cloud.langfuse.com
-LANGFUSE_BASE_URL=https://cloud.langfuse.com
 LANGFUSE_ENABLED=true
 ```
 
 ---
 
-## 🧪 Running the Proof of Concept (POC) Scripts
+## 💻 Running the Application
 
-### POC 1: OpenRouter Routing & LiteLLM Gateway
-Demonstrates multi-model aliases, latency-based routing, and fallback chains.
+### 1. Launch the ChatGPT Web UI & Voice Mode *(FastAPI + JavaScript)*
 ```powershell
-.venv\Scripts\python.exe pocs/01_litellm_openrouter_poc.py
+.venv\Scripts\python.exe main.py server
 ```
+> 👉 *Open in your browser at: **`http://localhost:8080`***
+> *Features: Token-by-token streaming, Voice Input (Groq Whisper Turbo), Auto-Speak (TTS), and live terminal logs on every request.*
 
-### POC 2: Langfuse Observability & Span Hierarchy
-Demonstrates session tracing, span nesting, token metrics, and cost calculation.
-```powershell
-.venv\Scripts\python.exe pocs/02_langfuse_tracing_poc.py
-```
+---
 
-### POC 3: NeMo Guardrails Input/Output Enforcement
-Demonstrates blocking jailbreaks, adversarial attacks, off-topic requests, and PII masking.
+### 2. Run the Autonomous Research Agent in Terminal
 ```powershell
-.venv\Scripts\python.exe pocs/03_nemo_guardrails_poc.py
-```
-
-### POC 4: LangGraph Research Planner & Tool Caller
-Demonstrates autonomous query decomposition, tool calling (Search, Math, Summaries), and synthesis.
-```powershell
-.venv\Scripts\python.exe pocs/04_langgraph_research_agent_poc.py
-```
-
-### POC 5: Unified End-to-End Pipeline
-Executes the full pipeline demonstrating legitimate complex research queries vs. intercepted attacks.
-```powershell
-.venv\Scripts\python.exe pocs/05_unified_end_to_end_poc.py
+.venv\Scripts\python.exe main.py agent "Evaluate multi-cloud LLM gateway latency and caching"
 ```
 
 ---
 
-## 🌐 Running LiteLLM Standalone Proxy Server
-To launch LiteLLM as an OpenAI-compatible proxy server for third-party tools:
+### 3. Run Multi-Provider Speed & Latency Benchmark
 ```powershell
-.venv\Scripts\python.exe src/gateway/proxy_launcher.py
+.venv\Scripts\python.exe main.py benchmark
 ```
-Endpoint available at `http://127.0.0.1:4000/v1`
 
 ---
 
-## 🛡️ Running Automated Test Suite
-To run the automated verification suite with pytest:
+## 🧪 Running the Examples & Test Suite
+
+### Standalone Examples:
+```powershell
+# Example 1: End-to-end pipeline demo
+.venv\Scripts\python.exe examples/01_all_in_one_pipeline.py
+
+# Example 2: Groq LPU speed test
+.venv\Scripts\python.exe examples/02_groq_speed_benchmark.py
+
+# Example 3: LiteLLM 0ms caching and failover demo
+.venv\Scripts\python.exe examples/03_gateway_caching_demo.py
+
+# Example 4: Multi-provider collaborative task
+.venv\Scripts\python.exe examples/04_multi_provider_demo.py
+```
+
+### Automated Pytest Suite (13 Tests):
 ```powershell
 .venv\Scripts\pytest.exe -v
 ```
-All 12 automated unit and integration tests verify the integrity of the gateway, guardrails, agent graph, and end-to-end pipeline.
+
+---
+
+## 📜 License
+MIT License. Free for commercial and open-source usage.

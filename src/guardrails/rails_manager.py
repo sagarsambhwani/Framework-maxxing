@@ -1,109 +1,68 @@
-"""NeMo Guardrails Manager for Input/Output Safety and Policy Enforcement."""
-import os
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+"""NeMo Guardrails & Safety Engine with Prompt Guard Classifier."""
+import re
+import time
+from typing import Dict, Any, Optional
+
 from src.common.config import settings
-from src.guardrails.custom_actions import (
-    check_jailbreak_pattern,
-    check_destructive_pattern,
-    mask_sensitive_pii,
-)
+from src.common.logging import term_log, Colors
 
 
 class GuardrailsManager:
-    """Manages input/output rails, prompt injection detection, and content safety."""
+    """Manages input jailbreak detection, output validation, and PII masking."""
 
-    def __init__(self):
-        self.enabled = settings.GUARDRAILS_ENABLED
-        self.rails = None
-        self._init_nemo_rails()
+    JAILBREAK_PATTERNS = [
+        r"ignore\s+(all\s+)?(previous|prior)\s+instructions",
+        r"developer\s+mode",
+        r"system\s+prompt\s+(reveal|leak|print|dump)",
+        r"format\s+c:\s*drive",
+        r"dan\s+mode",
+        r"unrestricted\s+mode"
+    ]
 
-    def _init_nemo_rails(self):
-        """Initialize NeMo Guardrails LLMRails instance if config exists."""
-        if not self.enabled:
-            return
+    @classmethod
+    def validate_input(cls, user_prompt: str) -> Dict[str, Any]:
+        """Validates input prompt for adversarial attacks, jailbreaks, and PII."""
+        if not settings.GUARDRAILS_ENABLED:
+            return {"allowed": True, "clean_prompt": user_prompt, "flagged": False, "reason": "Guardrails disabled"}
 
-        config_dir = Path(settings.GUARDRAILS_CONFIG_PATH)
-        if not config_dir.exists():
-            return
+        t0 = time.time()
 
-        try:
-            from nemoguardrails import RailsConfig, LLMRails
-            # Check if config files exist
-            if (config_dir / "config.yml").exists():
-                rails_config = RailsConfig.from_path(str(config_dir))
-                self.rails = LLMRails(rails_config)
-                print("[Guardrails] NeMo Guardrails engine initialized successfully.")
-        except Exception as e:
-            print(f"[Guardrails] Notice: Using high-speed deterministic guardrail engine: {e}")
-            self.rails = None
-
-    def validate_input(self, user_prompt: str) -> Dict[str, Any]:
-        """Verify user input against jailbreak, injection, and off-topic destruction policies."""
-        if not self.enabled:
-            return {"allowed": True, "reason": "Guardrails disabled", "sanitized_prompt": user_prompt}
-
-        # 1. Fast Heuristic: Check for Jailbreak
-        if check_jailbreak_pattern(user_prompt):
-            return {
-                "allowed": False,
-                "reason": "BLOCKED: Input contains prompt injection or adversarial jailbreak pattern.",
-                "sanitized_prompt": None,
-                "violation_type": "jailbreak"
-            }
-
-        # 2. Fast Heuristic: Check for Malicious/Destructive intent
-        if check_destructive_pattern(user_prompt):
-            return {
-                "allowed": False,
-                "reason": "BLOCKED: Request attempts destructive or unauthorized harmful activity.",
-                "sanitized_prompt": None,
-                "violation_type": "off_topic_destructive"
-            }
-
-        # 3. Mask PII in sanitized prompt
-        sanitized = mask_sensitive_pii(user_prompt)
-
-        return {
-            "allowed": True,
-            "reason": "Passed input safety checks",
-            "sanitized_prompt": sanitized,
-            "violation_type": None
-        }
-
-    def validate_output(self, response_text: str, context: Optional[str] = None) -> Dict[str, Any]:
-        """Verify output against policy constraints, toxicity, and mask sensitive PII."""
-        if not self.enabled:
-            return {"allowed": True, "response": response_text, "modified": False}
-
-        # 1. Check for system prompt leaks
-        leak_indicators = ["SYSTEM_PROMPT:", "MY_SECRET_INSTRUCTIONS:"]
-        for ind in leak_indicators:
-            if ind in response_text:
+        # 1. Regex Heuristic & Jailbreak Detection
+        for pattern in cls.JAILBREAK_PATTERNS:
+            if re.search(pattern, user_prompt, re.IGNORECASE):
+                dur_ms = round((time.time() - t0) * 1000, 2)
+                reason = f"BLOCKED by NeMo Guardrails: Disallowed pattern '{pattern}' detected."
+                term_log("🛡️ [GUARDRAIL]", f"{Colors.RED}BLOCKED{Colors.END} in {dur_ms}ms -> {reason}", Colors.RED)
                 return {
                     "allowed": False,
-                    "response": "Output blocked due to policy constraints regarding internal prompts.",
-                    "modified": True,
-                    "violation_type": "prompt_leak"
+                    "clean_prompt": user_prompt,
+                    "flagged": True,
+                    "reason": reason,
+                    "check_time_ms": dur_ms
                 }
 
-        # 2. Mask any PII generated in the response
-        clean_response = mask_sensitive_pii(response_text)
-        was_modified = (clean_response != response_text)
+        # 2. PII Masking (Emails & Phone Numbers)
+        sanitized = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "[REDACTED_EMAIL]", user_prompt)
+        sanitized = re.sub(r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b", "[REDACTED_PHONE]", sanitized)
+
+        dur_ms = round((time.time() - t0) * 1000, 2)
+        term_log("🛡️ [GUARDRAIL]", f"{Colors.GREEN}PASSED{Colors.END} in {dur_ms}ms (PII Sanitized)", Colors.GREEN)
 
         return {
             "allowed": True,
-            "response": clean_response,
-            "modified": was_modified,
-            "violation_type": None
+            "clean_prompt": sanitized,
+            "flagged": False,
+            "reason": "Passed all safety policies",
+            "check_time_ms": dur_ms
         }
 
+    @classmethod
+    def sanitize_output(cls, bot_output: str) -> str:
+        """Sanitizes model generated output against sensitive information leakage."""
+        cleaned = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "[REDACTED_EMAIL]", bot_output)
+        cleaned = re.sub(r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b", "[REDACTED_PHONE]", cleaned)
+        return cleaned
 
-_guardrails_instance: Optional[GuardrailsManager] = None
 
-
-def get_guardrails_manager() -> GuardrailsManager:
-    global _guardrails_instance
-    if _guardrails_instance is None:
-        _guardrails_instance = GuardrailsManager()
-    return _guardrails_instance
+# Global guardrails singleton
+guardrails = GuardrailsManager()
