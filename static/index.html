@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Pro - Multi-Model & Voice AI</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        chatDark: '#212121',
+                        chatSidebar: '#171717',
+                        chatInput: '#2f2f2f',
+                        chatBorder: '#3f3f3f',
+                        chatAccent: '#10a37f',
+                        chatAccentHover: '#19c37d'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Marked.js for Markdown & Highlight.js for Syntax Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-chatDark text-gray-100 flex h-screen overflow-hidden antialiased select-none">
+
+    <!-- 1. SIDEBAR -->
+    <aside id="sidebar" class="w-64 bg-chatSidebar flex flex-col justify-between border-r border-chatBorder p-3 transition-all duration-300 z-30">
+        <div class="flex flex-col h-full">
+            <!-- App Header & New Chat -->
+            <div class="flex items-center justify-between mb-3 px-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full bg-chatAccent flex items-center justify-center text-white font-bold text-sm shadow-md">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <span class="font-semibold text-sm tracking-wide text-gray-200">ChatGPT Pro</span>
+                </div>
+                <button id="new-chat-btn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-chatInput transition" title="New Chat">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+            </div>
+
+            <!-- Model Selection Dropdown -->
+            <div class="mb-4">
+                <label class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-2 block mb-1">Model Engine</label>
+                <div class="relative">
+                    <select id="model-select" class="w-full bg-chatInput border border-chatBorder text-gray-200 text-xs rounded-lg px-3 py-2 pr-8 appearance-none focus:outline-none focus:border-chatAccent cursor-pointer">
+                        <option value="groq/qwen/qwen3.8-27b" selected>⚡ Qwen 3.8 27B (Groq LPU ~0.3s)</option>
+                        <option value="groq/groq/compound">⚡ Groq Compound (Groq LPU)</option>
+                        <option value="groq/openai/gpt-oss-120b">⚡ GPT-OSS 120B (Groq LPU)</option>
+                        <option value="groq/allam-2-7b">⚡ Allam 7B (Groq LPU ~0.1s)</option>
+                        <option value="gemini/gemma-4-31b-it">🔵 Gemma 4 31B (Google AI)</option>
+                        <option value="gemini/gemini-3.6-flash">🔵 Gemini 3.6 Flash (1M Context)</option>
+                        <option value="openrouter/inclusionai/ling-3.0-flash-fin:free">🟢 Ling 3.0 Flash (OpenRouter)</option>
+                        <option value="openrouter/nvidia/nemotron-3.5-lightning:free">🟢 Nemotron 3.5 (OpenRouter)</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400 text-xs">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice & Guardrails Toggles -->
+            <div class="bg-chatDark p-3 rounded-xl border border-chatBorder mb-3 space-y-2.5">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-2 text-gray-300">
+                        <i class="fa-solid fa-volume-high text-chatAccent"></i> Auto-Speak (TTS)
+                    </span>
+                    <input type="checkbox" id="auto-tts-toggle" class="accent-chatAccent w-4 h-4 cursor-pointer">
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-2 text-gray-300">
+                        <i class="fa-solid fa-shield-halved text-blue-400"></i> NeMo Guardrails
+                    </span>
+                    <input type="checkbox" id="guardrails-toggle" checked class="accent-chatAccent w-4 h-4 cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Chat History List -->
+            <div class="flex-1 overflow-y-auto space-y-1 pr-1 custom-scroll">
+                <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-2 block mb-1">Recent Chats</span>
+                <div id="chat-history-list" class="space-y-1 text-xs">
+                    <!-- Dynamic chat session items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Info & Langfuse Link -->
+        <div class="pt-3 border-t border-chatBorder text-xs space-y-2">
+            <a href="https://cloud.langfuse.com" target="_blank" class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-chatInput text-gray-300 hover:text-white transition">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-chart-line text-emerald-400"></i> Langfuse Traces</span>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-gray-500"></i>
+            </a>
+            <div class="px-2 text-[11px] text-gray-500 flex items-center justify-between">
+                <span>Terminal Logging: <b class="text-emerald-400">Active</b></span>
+                <span id="active-session-pill" class="text-gray-400 font-mono">#chat-init</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 2. MAIN CHAT AREA -->
+    <main class="flex-1 flex flex-col h-full bg-chatDark relative overflow-hidden">
+        
+        <!-- Top Nav Bar -->
+        <header class="h-12 border-b border-chatBorder flex items-center justify-between px-4 bg-chatDark/80 backdrop-blur z-20">
+            <div class="flex items-center gap-3">
+                <button id="toggle-sidebar-btn" class="text-gray-400 hover:text-white text-base">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-200">
+                    <span id="header-model-badge" class="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-700 text-emerald-400 text-xs font-mono">Qwen 3.8 27B</span>
+                    <span id="header-latency-badge" class="text-xs text-gray-400">⚡ LPU 0.3s</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+                <div id="voice-indicator" class="hidden items-center gap-1.5 text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>Voice Listening</span>
+                </div>
+                <button id="clear-chat-btn" class="hover:text-red-400 transition" title="Clear conversation">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Messages Scroll Container -->
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:px-32 lg:px-48 space-y-6 custom-scroll">
+            
+            <!-- Empty State Starter Cards -->
+            <div id="starter-cards-container" class="py-12 flex flex-col items-center justify-center text-center">
+                <div class="w-12 h-12 rounded-full bg-chatInput border border-chatBorder flex items-center justify-center text-xl text-chatAccent mb-4 shadow-lg">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <h2 class="text-xl font-semibold text-gray-100 mb-6">What can I help you research today?</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl text-left">
+                    <button class="starter-card bg-chatInput border border-chatBorder hover:border-chatAccent p-4 rounded-xl text-xs transition transform hover:-translate-y-0.5" data-prompt="Explain quantum computing in simple everyday analogies for a high schooler.">
+                        <p class="font-medium text-gray-200 mb-1">💡 Explain Quantum Computing</p>
+                        <p class="text-gray-400">Simple everyday analogies for a beginner</p>
+                    </button>
+                    <button class="starter-card bg-chatInput border border-chatBorder hover:border-chatAccent p-4 rounded-xl text-xs transition transform hover:-translate-y-0.5" data-prompt="Compare Groq LPUs vs Nvidia GPUs for LLM inference latency and throughput.">
+                        <p class="font-medium text-gray-200 mb-1">⚡ Compare Groq LPUs vs GPUs</p>
+                        <p class="text-gray-400">Why LPUs achieve sub-second latency</p>
+                    </button>
+                    <button class="starter-card bg-chatInput border border-chatBorder hover:border-chatAccent p-4 rounded-xl text-xs transition transform hover:-translate-y-0.5" data-prompt="Write a production FastAPI microservice with JWT auth, rate limiting, and Dockerfile.">
+                        <p class="font-medium text-gray-200 mb-1">🐍 Build a FastAPI Service</p>
+                        <p class="text-gray-400">With JWT auth, rate limiting & Dockerfile</p>
+                    </button>
+                    <button class="starter-card bg-chatInput border border-chatBorder hover:border-chatAccent p-4 rounded-xl text-xs transition transform hover:-translate-y-0.5" data-prompt="Design an enterprise multi-cloud AI architecture for 10M requests/day with 99.99% uptime.">
+                        <p class="font-medium text-gray-200 mb-1">📊 Multi-Cloud AI Architecture</p>
+                        <p class="text-gray-400">For 10M requests/day with 99.99% uptime</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Messages injected here by app.js -->
+        </div>
+
+        <!-- 3. FLOATING CHAT INPUT BAR -->
+        <div class="p-4 md:px-32 lg:px-48 bg-gradient-to-t from-chatDark via-chatDark to-transparent">
+            <div class="bg-chatInput border border-chatBorder rounded-2xl shadow-2xl p-2 flex flex-col focus-within:border-gray-500 transition">
+                
+                <!-- Textarea -->
+                <textarea id="prompt-input" rows="1" placeholder="Message ChatGPT Pro... (or click 🎙️ for Voice Mode)" 
+                    class="w-full bg-transparent text-gray-100 text-sm px-3 py-2 resize-none focus:outline-none placeholder-gray-500 max-h-36"></textarea>
+
+                <!-- Input Action Buttons -->
+                <div class="flex items-center justify-between pt-1 px-1">
+                    <div class="flex items-center gap-2 text-xs text-gray-400">
+                        <span id="typing-indicator" class="hidden text-emerald-400 items-center gap-1.5">
+                            <i class="fa-solid fa-circle-notch animate-spin text-xs"></i> Generating tokens on terminal...
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Mic / Voice Input Button -->
+                        <button id="mic-btn" class="w-8 h-8 rounded-full bg-chatBorder hover:bg-gray-600 text-gray-300 hover:text-white flex items-center justify-center transition" title="Voice Input Mode (Groq Whisper Turbo)">
+                            <i class="fa-solid fa-microphone text-sm"></i>
+                        </button>
+
+                        <!-- Send / Stop Button -->
+                        <button id="send-btn" class="w-8 h-8 rounded-full bg-white hover:bg-gray-200 text-black flex items-center justify-center transition disabled:opacity-40" title="Send Message">
+                            <i class="fa-solid fa-arrow-up text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-[11px] text-gray-500 text-center mt-2">
+                All requests, model switches, token latencies & NeMo Guardrails are logged in live real-time on your Python terminal.
+            </p>
+        </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

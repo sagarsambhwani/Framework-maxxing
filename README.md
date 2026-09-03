@@ -54,6 +54,13 @@ Launch the full-featured visual dashboard to interact with all POCs, test prompt
 ```
 Open your browser at `http://localhost:8501`.
 
+### 🌟 ChatGPT Pro Web Interface (FastAPI + Vanilla JavaScript)
+Modern ChatGPT look-alike UI with **real-time token streaming, two-way Voice Mode (Groq Whisper Turbo STT + Browser TTS), and live terminal logs**:
+```powershell
+.venv\Scripts\python.exe server.py
+```
+> 👉 *Open in browser at: `http://localhost:8080`*
+
 ---
 
 ## 🚀 Quickstart Guide
