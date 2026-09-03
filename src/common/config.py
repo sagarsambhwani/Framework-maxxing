@@ -10,6 +10,7 @@ Key Capabilities:
     - Langfuse cloud observability credentials and endpoints
     - NeMo Guardrails configuration paths and enforcement toggles
     - Agent execution limits (max research iterations, web search toggles)
+    - Granular Debug Mode toggle for deep function-level tracing
 
 Usage:
     from src.common.config import settings
@@ -29,6 +30,14 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore"  # Gracefully ignore any unrecognized extra env variables
+    )
+
+    # =========================================================================
+    # 0. Global Debug & Verbosity Controls
+    # =========================================================================
+    DEBUG_MODE: bool = Field(
+        default=False,
+        description="Enables detailed function-level debug prints, payload dumps, and state transitions."
     )
 
     # =========================================================================

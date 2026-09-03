@@ -21,7 +21,7 @@ import json
 import tempfile
 from typing import Generator
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +32,7 @@ from src.gateway.router import gateway
 from src.guardrails.rails_manager import guardrails
 from src.observability.tracer import tracer
 from src.common.config import settings
-from src.common.logging import term_log, Colors
+from src.common.logging import term_log, debug_log, Colors
 
 
 def create_app() -> FastAPI:
@@ -73,7 +73,7 @@ def create_app() -> FastAPI:
         return HTMLResponse("<h2>Frontend static files not found. Please check static/index.html.</h2>")
 
     @app.post("/api/chat/stream")
-    async def chat_stream(req: ChatStreamRequest):
+    async def chat_stream(req: ChatStreamRequest, request: Request):
         """Streams language model completion tokens in real-time using Server-Sent Events (SSE).
 
         Process:
@@ -83,6 +83,7 @@ def create_app() -> FastAPI:
             4. Measures Time-to-First-Token (TTFT) and token generation speed (tok/s).
             5. Flushes trace telemetry to Langfuse Cloud.
         """
+        debug_log("🔍 [DEBUG:HTTP_REQ]", f"POST /api/chat/stream from {request.client.host} | Body: {len(req.prompt)} chars")
         term_log("📥 [REQUEST]", f"Session: {req.session_id} | Model: {Colors.YELLOW}{req.model}{Colors.END}", Colors.BLUE)
         term_log("💬 [PROMPT]", f"'{req.prompt[:100]}...'", Colors.CYAN)
 
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
             guard = guardrails.validate_input(req.prompt)
             if not guard["allowed"]:
                 tracer.log_event("Guardrail:Blocked", req.session_id, {"reason": guard["reason"]}, input_data=req.prompt)
+                debug_log("🔍 [DEBUG:SSE_BLOCKED]", f"Returning blocked payload: {guard['reason']}")
 
                 async def blocked_stream():
                     yield f"data: {json.dumps({'blocked': True, 'reason': guard['reason']})}\n\n"
@@ -112,6 +114,7 @@ def create_app() -> FastAPI:
             if turn.get("content"):
                 messages.append({"role": turn.get("role", "user"), "content": turn.get("content")})
         messages.append({"role": "user", "content": clean_prompt})
+        debug_log("🔍 [DEBUG:MESSAGES_BUILT]", f"Built payload with {len(messages)} turns")
 
         # ---------------------------------------------------------------------
         # 3. Stream Response Tokens via Gateway
@@ -138,6 +141,7 @@ def create_app() -> FastAPI:
             # Log metrics to developer's console
             term_log("🌊 [STREAM]", f"Finished in {Colors.GREEN}{dur}s{Colors.END} | TTFT: {ttft}ms | Tokens: {total_tok} | Speed: {Colors.BOLD}{speed} tok/s{Colors.END}", Colors.GREEN)
             term_log("📈 [LANGFUSE]", f"Trace synced to {settings.LANGFUSE_HOST} (Session: {req.session_id})", Colors.CYAN)
+            debug_log("🔍 [DEBUG:STREAM_CLOSE]", f"Total chars generated: {len(full_text)}")
             print("-" * 80, flush=True)
 
             # Sync event to Langfuse Cloud
@@ -168,7 +172,9 @@ def create_app() -> FastAPI:
 
         # Write uploaded audio stream to temporary file for Whisper processing
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp.write(await file.read())
+            content = await file.read()
+            debug_log("🔍 [DEBUG:VOICE_BYTES]", f"Audio file size: {len(content)} bytes")
+            tmp.write(content)
             tmp_path = tmp.name
 
         try:
@@ -182,9 +188,11 @@ def create_app() -> FastAPI:
             dur = round(time.time() - t0, 3)
             text = str(transcript).strip()
             term_log("🎙️ [WHISPER TURBO]", f"Transcribed in {Colors.GREEN}{dur}s{Colors.END}: '{Colors.BOLD}{text}{Colors.END}'", Colors.GREEN)
+            debug_log("🔍 [DEBUG:WHISPER_OUT]", f"Output text: '{text}' ({dur}s)")
             return JSONResponse({"text": text, "duration_s": dur})
         except Exception as e:
             term_log("❌ [WHISPER ERROR]", f"{e}", Colors.RED)
+            debug_log("🔍 [DEBUG:WHISPER_ERR]", f"Exception: {e}")
             raise HTTPException(status_code=500, detail=str(e))
         finally:
             if os.path.exists(tmp_path):

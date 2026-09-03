@@ -35,7 +35,7 @@ from src.gateway.router import gateway
 from src.guardrails.rails_manager import guardrails
 from src.observability.tracer import tracer
 from src.common.config import settings
-from src.common.logging import term_log, Colors
+from src.common.logging import term_log, debug_log, Colors
 
 
 def guardrail_node(state: ResearchState) -> Dict[str, Any]:
@@ -47,15 +47,18 @@ def guardrail_node(state: ResearchState) -> Dict[str, Any]:
     Returns:
         Partial state update with guardrail approval status and sanitized prompt.
     """
+    debug_log("🔍 [DEBUG:NODE_ENTER]", f"Entering guardrail_node (Session: {state.get('session_id')})")
     check = guardrails.validate_input(state["query"])
     tracer.log_event("Guardrail:InputCheck", state["session_id"], {"allowed": check["allowed"], "reason": check["reason"]})
 
     if not check["allowed"]:
+        debug_log("🔍 [DEBUG:NODE_EXIT]", f"guardrail_node -> REJECTED: {check['reason']}")
         return {
             "guardrail_allowed": False,
             "guardrail_reason": check["reason"],
             "final_report": f"❌ [REQUEST BLOCKED] {check['reason']}"
         }
+    debug_log("🔍 [DEBUG:NODE_EXIT]", f"guardrail_node -> APPROVED")
     return {
         "guardrail_allowed": True,
         "guardrail_reason": check["reason"],
@@ -72,6 +75,7 @@ def planner_node(state: ResearchState) -> Dict[str, Any]:
     Returns:
         Partial state update containing the list of planned tool tasks.
     """
+    debug_log("🔍 [DEBUG:NODE_ENTER]", "Entering planner_node")
     term_log("📋 [PLANNER]", f"Generating research plan for '{state['query'][:60]}...'", Colors.BLUE)
 
     prompt = (
@@ -91,6 +95,7 @@ def planner_node(state: ResearchState) -> Dict[str, Any]:
         {"tool": "calculator", "input": "1500 * 60 / 1000"}
     ]
 
+    debug_log("🔍 [DEBUG:NODE_EXIT]", f"planner_node produced {len(steps)} plan steps")
     tracer.log_event("Planner:Decomposition", state["session_id"], {"steps": steps}, output_data=resp["content"][:200])
     return {"plan_steps": steps}
 
@@ -104,6 +109,7 @@ def executor_node(state: ResearchState) -> Dict[str, Any]:
     Returns:
         Partial state update containing findings collected from tool runs.
     """
+    debug_log("🔍 [DEBUG:NODE_ENTER]", f"Entering executor_node with {len(state.get('plan_steps', []))} steps")
     findings = []
     for step in state.get("plan_steps", []):
         tool = step["tool"]
@@ -112,6 +118,7 @@ def executor_node(state: ResearchState) -> Dict[str, Any]:
         findings.append({"tool": tool, "input": tool_in, "result": result})
         tracer.log_event(f"Tool:{tool}", state["session_id"], {"input": tool_in}, output_data=result[:150])
 
+    debug_log("🔍 [DEBUG:NODE_EXIT]", f"executor_node collected {len(findings)} findings")
     return {"findings": findings}
 
 
@@ -124,6 +131,7 @@ def synthesizer_node(state: ResearchState) -> Dict[str, Any]:
     Returns:
         Partial state update containing the final sanitized executive report.
     """
+    debug_log("🔍 [DEBUG:NODE_ENTER]", "Entering synthesizer_node")
     term_log("📝 [SYNTHESIZER]", "Compiling gathered evidence into final executive report...", Colors.CYAN)
 
     context = "\n".join([f"[{f['tool']}] {f['input']} -> {f['result']}" for f in state.get("findings", [])])
@@ -141,6 +149,7 @@ def synthesizer_node(state: ResearchState) -> Dict[str, Any]:
     resp = gateway.complete(model=settings.PRIMARY_MODEL, messages=messages, session_id=state["session_id"])
     clean_report = guardrails.sanitize_output(resp["content"])
 
+    debug_log("🔍 [DEBUG:NODE_EXIT]", f"synthesizer_node completed ({len(clean_report)} characters)")
     tracer.log_event("Synthesizer:FinalReport", state["session_id"], {"query": state["query"]}, output_data=clean_report[:200])
     return {"final_report": clean_report}
 
@@ -154,7 +163,9 @@ def guardrail_router(state: ResearchState) -> str:
     Returns:
         Name of the next node ('planner' or 'end').
     """
-    return "planner" if state.get("guardrail_allowed", True) else "end"
+    target = "planner" if state.get("guardrail_allowed", True) else "end"
+    debug_log("🔍 [DEBUG:ROUTER_EDGE]", f"guardrail_router evaluated -> branching to '{target}'")
+    return target
 
 
 # -----------------------------------------------------------------------------

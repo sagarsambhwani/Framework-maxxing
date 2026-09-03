@@ -6,6 +6,7 @@ Provides standardized, ANSI-colored, timestamped logging for all system events:
     - Multi-provider gateway routing decisions (Groq, Gemini, OpenRouter)
     - Streaming latency metrics (TTFT, Total Duration, Tokens/sec)
     - Langfuse cloud observability synchronization events
+    - Granular function-level debug tracing (when DEBUG_MODE=True)
 
 Why this module exists:
     Streamlit and background frameworks often buffer standard stdout or bury
@@ -34,6 +35,7 @@ class Colors:
     YELLOW = "\033[93m"
     RED = "\033[91m"
     MAGENTA = "\033[35m"
+    GRAY = "\033[90m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
     END = "\033[0m"
@@ -50,6 +52,19 @@ def term_log(tag: str, message: str, color: str = Colors.CYAN):
     timestamp = time.strftime("%H:%M:%S")
     # flush=True ensures real-time emission without OS buffer delays
     print(f"{Colors.BOLD}[{timestamp}]{Colors.END} {color}{tag}{Colors.END} {message}", flush=True)
+
+
+def debug_log(tag: str, message: str):
+    """Outputs granular debug diagnostic info when DEBUG_MODE is active.
+
+    Args:
+        tag: Diagnostic category (e.g. '[DEBUG:STATE]', '[DEBUG:PAYLOAD]').
+        message: Detailed JSON or internal variable state dump.
+    """
+    from src.common.config import settings
+    if settings.DEBUG_MODE:
+        timestamp = time.strftime("%H:%M:%S")
+        print(f"{Colors.GRAY}[{timestamp}] {Colors.MAGENTA}{tag}{Colors.GRAY} {message}{Colors.END}", flush=True)
 
 
 def print_banner(title: str, subtitle: str = ""):

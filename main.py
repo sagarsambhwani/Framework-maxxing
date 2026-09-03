@@ -1,21 +1,22 @@
 """Unified CLI Entrypoint for the Framework-maxxing Architecture.
 
 This module provides a single, polished command-line interface for running:
-    1. `python main.py server`
+    1. `python main.py server [--debug]`
        Launches the FastAPI ChatGPT Pro Web UI with Server-Sent Events (SSE) streaming,
        Groq Whisper Turbo voice mode, and live colored terminal logging on port 8080.
 
-    2. `python main.py agent "your query"`
+    2. `python main.py agent "your query" [--debug]`
        Runs the LangGraph Stateful Autonomous Research Agent in terminal mode with
        automated safety evaluation, planning, tool dispatching, and report synthesis.
 
-    3. `python main.py benchmark`
+    3. `python main.py benchmark [--debug]`
        Executes comparative speed, latency, and TTFT benchmarks across Groq LPUs,
        Google Gemini, and OpenRouter endpoints.
 
 Usage Examples:
     .venv\\Scripts\\python.exe main.py server
-    .venv\\Scripts\\python.exe main.py agent "Design an AI Gateway with caching"
+    .venv\\Scripts\\python.exe main.py server --debug
+    .venv\\Scripts\\python.exe main.py agent "Design an AI Gateway with caching" --debug
     .venv\\Scripts\\python.exe main.py benchmark
 """
 
@@ -35,7 +36,7 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 from src.common.config import settings
-from src.common.logging import term_log, print_banner, Colors
+from src.common.logging import term_log, debug_log, print_banner, Colors
 
 
 def run_server():
@@ -45,7 +46,7 @@ def run_server():
 
     print_banner(
         "CHATGPT PRO FASTAPI + JAVASCRIPT SERVER",
-        f"Web UI: http://localhost:{settings.SERVER_PORT} | Terminal Logs: ACTIVE"
+        f"Web UI: http://localhost:{settings.SERVER_PORT} | Terminal Logs: ACTIVE | Debug Mode: {'ON' if settings.DEBUG_MODE else 'OFF'}"
     )
     # Start Uvicorn ASGI server on configured port
     uvicorn.run(app, host="127.0.0.1", port=settings.SERVER_PORT, log_level="warning")
@@ -60,7 +61,7 @@ def run_agent(query: str):
     from src.agent.graph import research_agent
     session_id = f"agent-{uuid.uuid4().hex[:6]}"
 
-    print_banner("LANGGRAPH AUTONOMOUS RESEARCH AGENT", f"Query: '{query}' | Session: {session_id}")
+    print_banner("LANGGRAPH AUTONOMOUS RESEARCH AGENT", f"Query: '{query}' | Session: {session_id} | Debug Mode: {'ON' if settings.DEBUG_MODE else 'OFF'}")
     start_t = time.time()
 
     # Construct initial state matching ResearchState schema
@@ -100,7 +101,7 @@ def run_agent(query: str):
 def run_benchmark():
     """Executes comparative latency benchmarks across all supported cloud providers."""
     from src.gateway.router import gateway
-    print_banner("MULTI-PROVIDER SPEED & LATENCY BENCHMARK", "Testing Groq LPU vs Google Gemini vs OpenRouter")
+    print_banner("MULTI-PROVIDER SPEED & LATENCY BENCHMARK", f"Testing Groq LPU vs Google Gemini vs OpenRouter | Debug Mode: {'ON' if settings.DEBUG_MODE else 'OFF'}")
 
     benchmarks = [
         ("groq/qwen/qwen3.8-27b", "⚡ Groq LPU (Qwen 3.8 27B)"),
@@ -125,10 +126,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="Framework-maxxing AI Gateway & Autonomous Agent CLI"
     )
+    # Global debug flag
+    parser.add_argument("--debug", action="store_true", help="Enable verbose diagnostic debug logging")
+    
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # 1. 'server' subcommand
-    subparsers.add_parser("server", help="Launch FastAPI Web Server on http://localhost:8080")
+    server_parser = subparsers.add_parser("server", help="Launch FastAPI Web Server on http://localhost:8080")
+    server_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
     # 2. 'agent' subcommand
     agent_parser = subparsers.add_parser("agent", help="Run LangGraph Autonomous Research Agent")
@@ -138,11 +143,18 @@ def main():
         default="Evaluate multi-cloud LLM gateway latency and caching",
         help="Research query text"
     )
+    agent_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
     # 3. 'benchmark' subcommand
-    subparsers.add_parser("benchmark", help="Run multi-provider speed & latency benchmark")
+    bench_parser = subparsers.add_parser("benchmark", help="Run multi-provider speed & latency benchmark")
+    bench_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
     args = parser.parse_args()
+
+    # If --debug flag is present anywhere, set DEBUG_MODE = True
+    if getattr(args, "debug", False):
+        settings.DEBUG_MODE = True
+        debug_log("🔍 [DEBUG:INIT]", "Verbose diagnostic debug logging ENABLED")
 
     if args.command == "server":
         run_server()

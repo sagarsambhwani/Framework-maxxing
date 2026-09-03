@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Generator
 import litellm
 from openai import OpenAI
 from src.common.config import settings
-from src.common.logging import term_log, Colors
+from src.common.logging import term_log, debug_log, Colors
 
 # Silence LiteLLM's internal informational output to keep the terminal output clean
 litellm.drop_params = True
@@ -73,6 +73,8 @@ class MultiProviderGateway:
                 - 'provider': Name of the cloud provider that served the inference.
         """
         start_time = time.time()
+        debug_log("🔍 [DEBUG:GATEWAY_ENTER]", f"complete() called with model='{model}', max_tokens={max_tokens}, turns={len(messages)}")
+
         # Fallback chain: Primary target -> Configured fallback model
         models_to_try = [model, settings.FALLBACK_MODEL]
 
@@ -97,7 +99,8 @@ class MultiProviderGateway:
                     content = resp.choices[0].message.content or ""
                     tokens = getattr(resp.usage, "total_tokens", len(content.split()))
                     dur = round(time.time() - start_time, 3)
-                    
+                    debug_log("🔍 [DEBUG:GROQ_RESP]", f"Received {len(content)} chars ({tokens} tokens) in {dur}s")
+
                     return {
                         "content": content.strip(),
                         "model": target_model,
@@ -121,7 +124,8 @@ class MultiProviderGateway:
                     content = getattr(resp.choices[0].message, "content", "") or ""
                     tokens = getattr(resp.usage, "total_tokens", len(content.split()))
                     dur = round(time.time() - start_time, 3)
-                    
+                    debug_log("🔍 [DEBUG:GEMINI_RESP]", f"Received {len(content)} chars ({tokens} tokens) in {dur}s")
+
                     return {
                         "content": content.strip(),
                         "model": target_model,
@@ -146,7 +150,8 @@ class MultiProviderGateway:
                     content = getattr(resp.choices[0].message, "content", "") or ""
                     tokens = getattr(resp.usage, "total_tokens", len(content.split()))
                     dur = round(time.time() - start_time, 3)
-                    
+                    debug_log("🔍 [DEBUG:OPENROUTER_RESP]", f"Received {len(content)} chars ({tokens} tokens) in {dur}s")
+
                     return {
                         "content": content.strip(),
                         "model": target_model,
@@ -158,6 +163,7 @@ class MultiProviderGateway:
             except Exception as e:
                 # Log error and immediately trip failover to the next model in chain
                 term_log("⚠️ [FAILOVER]", f"Model '{target_model}' failed: {e}. Switching to fallback...", Colors.YELLOW)
+                debug_log("🔍 [DEBUG:FAILOVER_STACK]", f"Error details: {type(e).__name__}: {e}")
                 continue
 
         # Ultimate fallback simulation to guarantee non-breaking execution
@@ -186,6 +192,7 @@ class MultiProviderGateway:
         Yields:
             Individual token string chunks.
         """
+        debug_log("🔍 [DEBUG:STREAM_ENTER]", f"stream() initialized for model='{model}'")
         try:
             # Stream from Groq
             if model.startswith("groq/"):
