@@ -29,10 +29,11 @@ class GuardrailsManager:
     # Disallowed adversarial and jailbreak regular expression patterns
     JAILBREAK_PATTERNS = [
         r"ignore\s+(all\s+)?(previous|prior)\s+instructions",
+        r"disregard\s+(all\s+)?(ethical|safety|prior|previous)\s+filters?",
         r"developer\s+mode",
         r"system\s+prompt\s+(reveal|leak|print|dump)",
         r"format\s+c:\s*drive",
-        r"dan\s+mode",
+        r"\bdan\b|\bdo\s+anything\s+now\b",
         r"unrestricted\s+mode"
     ]
 

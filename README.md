@@ -144,6 +144,15 @@ LANGFUSE_ENABLED=true
 
 ---
 
+### 4. 📊 Run Enterprise Evaluation & Benchmarking Suite (RAG Triad, Safety, Tools)
+Run the automated evaluation benchmark across **NeMo Guardrails security, Agent tool accuracy, RAG Faithfulness (LLM Judge), and Multi-Provider latency**:
+```powershell
+.venv\Scripts\python.exe main.py eval
+```
+> 👉 *Exports a complete markdown scorecard to `evaluation_report.md` and syncs evaluation traces to [Langfuse Cloud](https://cloud.langfuse.com).*
+
+---
+
 ## 🧪 Running the Examples & Test Suite
 
 ### Standalone Examples:
@@ -159,9 +168,12 @@ LANGFUSE_ENABLED=true
 
 # Example 4: Multi-provider collaborative task
 .venv\Scripts\python.exe examples/04_multi_provider_demo.py
+
+# Example 5: Enterprise AI Evaluation & Benchmarking Suite
+.venv\Scripts\python.exe examples/05_evaluation_benchmark.py
 ```
 
-### Automated Pytest Suite (13 Tests):
+### Automated Pytest Suite (17 Tests):
 ```powershell
 .venv\Scripts\pytest.exe -v
 ```

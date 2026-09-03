@@ -13,11 +13,13 @@ This module provides a single, polished command-line interface for running:
        Executes comparative speed, latency, and TTFT benchmarks across Groq LPUs,
        Google Gemini, and OpenRouter endpoints.
 
+    4. `python main.py eval [--export-report path.md]`
+       Runs the Enterprise AI Evaluation & Benchmarking Suite (Safety, RAG Triad, Tools, Speed).
+
 Usage Examples:
     .venv\\Scripts\\python.exe main.py server
-    .venv\\Scripts\\python.exe main.py server --debug
+    .venv\\Scripts\\python.exe main.py eval
     .venv\\Scripts\\python.exe main.py agent "Design an AI Gateway with caching" --debug
-    .venv\\Scripts\\python.exe main.py benchmark
 """
 
 import sys
@@ -48,7 +50,6 @@ def run_server():
         "CHATGPT PRO FASTAPI + JAVASCRIPT SERVER",
         f"Web UI: http://localhost:{settings.SERVER_PORT} | Terminal Logs: ACTIVE | Debug Mode: {'ON' if settings.DEBUG_MODE else 'OFF'}"
     )
-    # Start Uvicorn ASGI server on configured port
     uvicorn.run(app, host="127.0.0.1", port=settings.SERVER_PORT, log_level="warning")
 
 
@@ -64,7 +65,6 @@ def run_agent(query: str):
     print_banner("LANGGRAPH AUTONOMOUS RESEARCH AGENT", f"Query: '{query}' | Session: {session_id} | Debug Mode: {'ON' if settings.DEBUG_MODE else 'OFF'}")
     start_t = time.time()
 
-    # Construct initial state matching ResearchState schema
     initial_state = {
         "query": query,
         "session_id": session_id,
@@ -76,11 +76,9 @@ def run_agent(query: str):
         "iteration_count": 0
     }
 
-    # Execute graph state transitions: Guardrail -> Planner -> Executor -> Synthesizer
     final_state = research_agent.invoke(initial_state)
     dur = round(time.time() - start_t, 2)
 
-    # Print structured execution breakdown
     print("\n" + "=" * 80)
     print("📊 AGENT EXECUTION SUMMARY")
     print("=" * 80)
@@ -121,12 +119,17 @@ def run_benchmark():
     print("✓ Benchmark complete!")
 
 
+def run_evaluation(export_path: str = "evaluation_report.md"):
+    """Executes the enterprise evaluation & benchmarking suite."""
+    from src.evaluation.runner import run_evaluation_suite
+    run_evaluation_suite(export_path=export_path)
+
+
 def main():
     """Parses command-line arguments and dispatches to appropriate handler."""
     parser = argparse.ArgumentParser(
         description="Framework-maxxing AI Gateway & Autonomous Agent CLI"
     )
-    # Global debug flag
     parser.add_argument("--debug", action="store_true", help="Enable verbose diagnostic debug logging")
     
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -149,9 +152,13 @@ def main():
     bench_parser = subparsers.add_parser("benchmark", help="Run multi-provider speed & latency benchmark")
     bench_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
+    # 4. 'eval' subcommand
+    eval_parser = subparsers.add_parser("eval", help="Run Enterprise AI Evaluation & Benchmarking Suite")
+    eval_parser.add_argument("--export-report", default="evaluation_report.md", help="Path to export Markdown report")
+    eval_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
+
     args = parser.parse_args()
 
-    # If --debug flag is present anywhere, set DEBUG_MODE = True
     if getattr(args, "debug", False):
         settings.DEBUG_MODE = True
         debug_log("🔍 [DEBUG:INIT]", "Verbose diagnostic debug logging ENABLED")
@@ -162,6 +169,8 @@ def main():
         run_agent(args.query)
     elif args.command == "benchmark":
         run_benchmark()
+    elif args.command == "eval":
+        run_evaluation(export_path=args.export_report)
     else:
         # Default behavior: start server
         run_server()
