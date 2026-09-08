@@ -200,9 +200,12 @@ Scan your local JSON traces for SLA violations, slow TTFT, and token budget ceil
 
 # Example 7: Multi-Target Observability (Local JSON, Phoenix, OTel, Langfuse)
 .venv\Scripts\python.exe examples/07_observability_comparison_demo.py
+
+# Example 8: Semantic Vector Caching Benchmark (0ms, $0.00 cost)
+.venv\Scripts\python.exe examples/08_semantic_caching_benchmark.py
 ```
 
-### Automated Pytest Suite (21 Tests):
+### Automated Pytest Suite (29 Tests):
 ```powershell
 .venv\Scripts\pytest.exe -v
 ```
