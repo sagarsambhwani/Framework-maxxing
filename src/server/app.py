@@ -33,6 +33,7 @@ from src.guardrails.rails_manager import guardrails
 from src.observability.tracer import tracer
 from src.common.config import settings
 from src.common.logging import term_log, debug_log, Colors
+from src.rag.ingestion.api import router as ingestion_router
 
 
 def create_app() -> FastAPI:
@@ -55,6 +56,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Mount Enterprise Ingestion & Tri-Brid RAG routes
+    app.include_router(ingestion_router)
 
     # Mount static assets directory (HTML, CSS, JS)
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
