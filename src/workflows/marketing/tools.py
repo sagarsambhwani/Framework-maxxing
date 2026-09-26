@@ -8,7 +8,7 @@ Provides specialized analytical tools used by the Marketing Agents:
 
 import re
 from typing import Dict, Any, List
-from src.common.logging import term_log, Colors
+from src.common.tools import safe_web_search
 
 
 def market_trend_search(topic: str) -> str:
@@ -20,15 +20,8 @@ def market_trend_search(topic: str) -> str:
     Returns:
         Summary of recent market insights and popular discussion points.
     """
-    try:
-        from duckduckgo_search import DDGS
-        with DDGS() as ddgs:
-            results = list(ddgs.text(f"{topic} market trends 2026", max_results=2))
-            if results:
-                return "\n".join([f"• {r.get('title')}: {r.get('body')}" for r in results])
-    except Exception:
-        pass
-    return f"Key trend in {topic}: High demand for cost-reduction, ultra-low latency, and zero-vendor lock-in."
+    fallback = f"Key trend in {topic}: High demand for cost-reduction, ultra-low latency, and zero-vendor lock-in."
+    return safe_web_search(f"{topic} market trends 2026", max_results=2, fallback_text=fallback)
 
 
 def keyword_density_analyzer(text: str, target_keywords: List[str]) -> Dict[str, Any]:

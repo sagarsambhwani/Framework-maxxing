@@ -1,33 +1,24 @@
 """Multi-Provider Routing Gateway (Groq LPUs, Google Gemini, OpenRouter).
 
-This module implements the unified `MultiProviderGateway` that routes AI model requests
-across multiple distinct cloud providers while providing:
-    1. Cross-Provider Routing: Standardizes OpenAI, Gemini, and Groq SDK message formats.
-    2. Zero-Downtime Failover: If a primary endpoint fails (e.g. 503 high demand or 429 rate limit),
-       it automatically catches the exception and routes to a designated backup model.
-    3. Real-Time Token Streaming: Implements generator-based chunk streaming for typewriter UI effects.
-    4. Telemetry Extraction: Computes exact latency (seconds), token counts, and provider metadata.
-
-Design Rationale:
-    Instead of hardcoding vendor-specific SDK boilerplate across the application,
-    all components (LangGraph agent, FastAPI server, CLI scripts) interact exclusively
-    with this single `gateway` instance.
+This module coordinates multi-model AI routing with:
+    1. Sub-Millisecond Semantic Vector Caching (0ms, $0 cost).
+    2. Dynamic Provider Strategy Dispatch (Groq, Gemini, OpenRouter).
+    3. Automated Multi-Tier Failover.
+    4. Real-Time Token Streaming.
 """
 
-import os
 import time
 import logging
 from typing import Any, Dict, List, Optional, Generator
 
 import litellm
-from openai import OpenAI
 from src.common.config import settings
 from src.common.logging import term_log, debug_log, Colors
-
 from src.gateway.cache.semantic_cache import semantic_cache
+from src.gateway.providers import get_provider_adapter
 from src.observability.tracer import tracer
 
-# Silence LiteLLM's internal informational output to keep the terminal output clean
+# Silence LiteLLM internal logs to maintain clean terminal output
 litellm.drop_params = True
 litellm.set_verbose = False
 litellm.suppress_debug_info = True
@@ -35,20 +26,7 @@ logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 
 
 class MultiProviderGateway:
-    """Unified routing engine abstracting model invocations across Groq, Gemini, and OpenRouter."""
-
-    def __init__(self):
-        """Initializes direct provider clients with environment configuration."""
-        self.groq_client: Optional[OpenAI] = None
-        if settings.GROQ_API_KEY:
-            try:
-                # Groq uses standard OpenAI API wire protocol pointing to api.groq.com
-                self.groq_client = OpenAI(
-                    base_url="https://api.groq.com/openai/v1",
-                    api_key=settings.GROQ_API_KEY
-                )
-            except Exception as e:
-                term_log("⚠️ [GATEWAY]", f"Failed to initialize direct Groq client: {e}", Colors.YELLOW)
+    """Unified routing engine coordinating semantic caching and provider strategy dispatch."""
 
     def complete(
         self,
@@ -59,24 +37,12 @@ class MultiProviderGateway:
         session_id: Optional[str] = None,
         use_cache: bool = True
     ) -> Dict[str, Any]:
-        """Executes a synchronous completion with automatic cross-provider failover and semantic caching.
-
-        Args:
-            model: Provider/model identifier (e.g. 'groq/qwen/qwen3.8-27b', 'gemini/gemma-4-31b-it').
-            messages: List of OpenAI-formatted chat turns (role & content).
-            temperature: Sampling temperature (0.0 = deterministic, 1.0 = creative).
-            max_tokens: Maximum token length for the response.
-            session_id: Optional trace session correlation ID for Langfuse.
-            use_cache: If True, checks and stores responses in the Semantic Vector Cache.
-
-        Returns:
-            Dict containing response text, latency, token metrics, and cache metadata.
-        """
+        """Executes a completion with semantic caching and automatic failover."""
         start_time = time.time()
-        debug_log("🔍 [DEBUG:GATEWAY_ENTER]", f"complete() called with model='{model}', max_tokens={max_tokens}, turns={len(messages)}")
+        debug_log("🔍 [DEBUG:GATEWAY_ENTER]", f"complete() model='{model}', max_tokens={max_tokens}, turns={len(messages)}")
 
         # -------------------------------------------------------------
-        # 0. SEMANTIC VECTOR CACHE LOOKUP (0ms, $0.00 cost)
+        # 1. SEMANTIC VECTOR CACHE LOOKUP (0ms, $0 cost)
         # -------------------------------------------------------------
         query_text = ""
         for m in reversed(messages):
@@ -123,126 +89,34 @@ class MultiProviderGateway:
                     "similarity": sim
                 }
 
-        # Fallback chain: Primary target -> Configured fallback model
+        # -------------------------------------------------------------
+        # 2. PROVIDER STRATEGY DISPATCH WITH AUTOMATIC FAILOVER
+        # -------------------------------------------------------------
         models_to_try = [model, settings.FALLBACK_MODEL]
 
         for target_model in models_to_try:
             try:
-                # -------------------------------------------------------------
-                # 1. GROQ LPU INFERENCE (Sub-second token generation)
-                # -------------------------------------------------------------
-                if target_model.startswith("groq/"):
-                    actual_slug = target_model.replace("groq/", "")
-                    term_log("⚡ [GATEWAY]", f"Routing to {Colors.YELLOW}Groq LPU ({actual_slug}){Colors.END}", Colors.YELLOW)
-                    
-                    if not self.groq_client:
-                        raise ValueError("Groq client not initialized (missing GROQ_API_KEY)")
+                adapter = get_provider_adapter(target_model)
+                res = adapter.complete(
+                    model=target_model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
 
-                    resp = self.groq_client.chat.completions.create(
-                        model=actual_slug,
-                        messages=messages,
-                        temperature=temperature,
-                        max_tokens=max_tokens
-                    )
-                    content = (resp.choices[0].message.content or "").strip()
-                    prompt_toks = getattr(resp.usage, "prompt_tokens", 0)
-                    compl_toks = getattr(resp.usage, "completion_tokens", 0)
-                    tokens = getattr(resp.usage, "total_tokens", prompt_toks + compl_toks)
-                    dur = round(time.time() - start_time, 3)
-                    debug_log("🔍 [DEBUG:GROQ_RESP]", f"Received {len(content)} chars ({tokens} tokens) in {dur}s")
+                if use_cache and query_text and res.get("content"):
+                    semantic_cache.store(query_text, res["content"], model=target_model)
 
-                    # Store in semantic vector cache for subsequent hits
-                    if use_cache and query_text and content:
-                        semantic_cache.store(query_text, content, model=target_model)
-
-                    return {
-                        "content": content,
-                        "model": target_model,
-                        "latency_s": dur,
-                        "ttft_ms": round(dur * 250, 1) if dur < 1.0 else 140.0,
-                        "prompt_tokens": prompt_toks,
-                        "completion_tokens": compl_toks,
-                        "tokens": tokens,
-                        "provider": "Groq LPU",
-                        "cache_hit": False
-                    }
-
-                # -------------------------------------------------------------
-                # 2. GOOGLE GEMINI INFERENCE (1M Token Context)
-                # -------------------------------------------------------------
-                elif target_model.startswith("gemini/"):
-                    term_log("🔵 [GATEWAY]", f"Routing to {Colors.CYAN}Google Gemini ({target_model}){Colors.END}", Colors.CYAN)
-                    resp = litellm.completion(
-                        model=target_model,
-                        messages=messages,
-                        api_key=settings.GEMINI_API_KEY,
-                        temperature=temperature,
-                        max_tokens=max_tokens
-                    )
-                    content = (getattr(resp.choices[0].message, "content", "") or "").strip()
-                    prompt_toks = getattr(resp.usage, "prompt_tokens", 0)
-                    compl_toks = getattr(resp.usage, "completion_tokens", 0)
-                    tokens = getattr(resp.usage, "total_tokens", prompt_toks + compl_toks)
-                    dur = round(time.time() - start_time, 3)
-                    debug_log("🔍 [DEBUG:GEMINI_RESP]", f"Received {len(content)} chars ({tokens} tokens) in {dur}s")
-
-                    if use_cache and query_text and content:
-                        semantic_cache.store(query_text, content, model=target_model)
-
-                    return {
-                        "content": content,
-                        "model": target_model,
-                        "latency_s": dur,
-                        "ttft_ms": 650.0,
-                        "prompt_tokens": prompt_toks,
-                        "completion_tokens": compl_toks,
-                        "tokens": tokens,
-                        "provider": "Google Gemini",
-                        "cache_hit": False
-                    }
-
-                # -------------------------------------------------------------
-                # 3. OPENROUTER MULTI-MODEL FALLBACK INFERENCE
-                # -------------------------------------------------------------
-                else:
-                    term_log("🟢 [GATEWAY]", f"Routing to {Colors.GREEN}OpenRouter ({target_model}){Colors.END}", Colors.GREEN)
-                    resp = litellm.completion(
-                        model=target_model,
-                        messages=messages,
-                        api_key=settings.OPENROUTER_API_KEY,
-                        api_base=settings.OPENROUTER_BASE_URL,
-                        temperature=temperature,
-                        max_tokens=max_tokens
-                    )
-                    content = (getattr(resp.choices[0].message, "content", "") or "").strip()
-                    prompt_toks = getattr(resp.usage, "prompt_tokens", 0)
-                    compl_toks = getattr(resp.usage, "completion_tokens", 0)
-                    tokens = getattr(resp.usage, "total_tokens", prompt_toks + compl_toks)
-                    dur = round(time.time() - start_time, 3)
-                    debug_log("🔍 [DEBUG:OPENROUTER_RESP]", f"Received {len(content)} chars ({tokens} tokens) in {dur}s")
-
-                    if use_cache and query_text and content:
-                        semantic_cache.store(query_text, content, model=target_model)
-
-                    return {
-                        "content": content,
-                        "model": target_model,
-                        "latency_s": dur,
-                        "ttft_ms": 520.0,
-                        "prompt_tokens": prompt_toks,
-                        "completion_tokens": compl_toks,
-                        "tokens": tokens,
-                        "provider": "OpenRouter",
-                        "cache_hit": False
-                    }
+                return res
 
             except Exception as e:
-                # Log error and immediately trip failover to the next model in chain
                 term_log("⚠️ [FAILOVER]", f"Model '{target_model}' failed: {e}. Switching to fallback...", Colors.YELLOW)
                 debug_log("🔍 [DEBUG:FAILOVER_STACK]", f"Error details: {type(e).__name__}: {e}")
                 continue
 
-        # Ultimate fallback simulation to guarantee non-breaking execution
+        # -------------------------------------------------------------
+        # 3. ULTIMATE LOCAL FALLBACK
+        # -------------------------------------------------------------
         dur = round(time.time() - start_time, 3)
         fallback_content = f"Synthesized response for '{messages[-1]['content'][:60]}' using fallback gateway."
         if use_cache and query_text:
@@ -263,76 +137,16 @@ class MultiProviderGateway:
         messages: List[Dict[str, str]],
         max_tokens: int = 2048
     ) -> Generator[str, None, None]:
-        """Yields response tokens in real-time as they are produced by the provider.
-
-        Args:
-            model: Provider/model identifier slug.
-            messages: List of conversation turns.
-            max_tokens: Maximum tokens to generate.
-
-        Yields:
-            Individual token string chunks.
-        """
+        """Yields streaming response tokens in real-time from the designated provider."""
         debug_log("🔍 [DEBUG:STREAM_ENTER]", f"stream() initialized for model='{model}'")
         try:
-            # Stream from Groq
-            if model.startswith("groq/"):
-                actual_slug = model.replace("groq/", "")
-                stream_resp = self.groq_client.chat.completions.create(
-                    model=actual_slug,
-                    messages=messages,
-                    stream=True,
-                    max_tokens=max_tokens
-                )
-                for chunk in stream_resp:
-                    content = chunk.choices[0].delta.content or ""
-                    if content:
-                        yield content
-
-            # Stream from Google Gemini
-            elif model.startswith("gemini/"):
-                resp = litellm.completion(
-                    model=model,
-                    messages=messages,
-                    api_key=settings.GEMINI_API_KEY,
-                    stream=True,
-                    max_tokens=max_tokens
-                )
-                for chunk in resp:
-                    content = chunk.choices[0].delta.content or ""
-                    if content:
-                        yield content
-
-            # Stream from OpenRouter
-            else:
-                resp = litellm.completion(
-                    model=model,
-                    messages=messages,
-                    api_key=settings.OPENROUTER_API_KEY,
-                    api_base=settings.OPENROUTER_BASE_URL,
-                    stream=True,
-                    max_tokens=max_tokens
-                )
-                for chunk in resp:
-                    content = chunk.choices[0].delta.content or ""
-                    if content:
-                        yield content
-
+            adapter = get_provider_adapter(model)
+            yield from adapter.stream(model=model, messages=messages, max_tokens=max_tokens)
         except Exception as e:
-            # Fallback streaming if primary model stream is interrupted
             yield f"\n\n*[Notice: Primary endpoint interrupted ({str(e)[:60]}...). Rerouting to fallback...]*\n\n"
             try:
-                fb_resp = litellm.completion(
-                    model=settings.FALLBACK_MODEL,
-                    messages=messages,
-                    api_key=settings.OPENROUTER_API_KEY,
-                    api_base=settings.OPENROUTER_BASE_URL,
-                    stream=True
-                )
-                for chunk in fb_resp:
-                    content = chunk.choices[0].delta.content or ""
-                    if content:
-                        yield content
+                fb_adapter = get_provider_adapter(settings.FALLBACK_MODEL)
+                yield from fb_adapter.stream(model=settings.FALLBACK_MODEL, messages=messages, max_tokens=max_tokens)
             except Exception as fb_err:
                 yield f"\n\n❌ All streaming endpoints failed: {fb_err}"
 

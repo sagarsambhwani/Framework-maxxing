@@ -27,6 +27,10 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore::RuntimeWarning",
+    "ignore::DeprecationWarning",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]
