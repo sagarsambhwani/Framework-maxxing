@@ -56,6 +56,18 @@ def test_sanitizer_clean_text_unchanged():
     assert sanitized == raw
     assert len(redacted) == 0
 
+def test_sanitizer_strips_null_bytes_and_zero_width_evasion():
+    # An adversarial string with embedded null bytes and zero-width spaces designed to evade regex filters
+    raw = "Adversarial payload with null byte: Hello\x00World and zero-width: 4\u200B5\u200B3\u200B2-8921-3456-7890."
+    sanitized, redacted = sanitizer.sanitize(raw)
+    assert "\x00" not in sanitized
+    assert "\u200B" not in sanitized
+    assert "HelloWorld" in sanitized
+    assert "[MASKED_PAN_7890]" in sanitized
+    assert "NULL_BYTE_INJECTION" in redacted
+    assert "ZERO_WIDTH_EVASION" in redacted
+    assert "PCI_DSS_CREDIT_CARD" in redacted
+
 # ---------------------------------------------------------------------------
 # 2. Change Data Capture (CDC) Registry Tests
 # ---------------------------------------------------------------------------

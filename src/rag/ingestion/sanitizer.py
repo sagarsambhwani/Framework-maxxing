@@ -17,9 +17,13 @@ class ZeroTrustComplianceSanitizer:
     PHONE_REGEX = re.compile(r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
     ACCOUNT_REGEX = re.compile(r'\b(?:Account|ACCT|IBAN)[\s#:]+([A-Za-z0-9]{8,24})\b', re.IGNORECASE)
 
+    # Pathological & Evasion Artifacts: Null bytes, Zero-Width Spaces, BOM, and BiDi Overrides
+    NULL_BYTE_REGEX = re.compile(r'\x00')
+    ZERO_WIDTH_REGEX = re.compile(r'[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]')
+
     @classmethod
     def sanitize(cls, text: str) -> Tuple[str, List[str]]:
-        """Redacts sensitive financial PII with deterministic surrogate tokens.
+        """Redacts sensitive financial PII and purges pathological/evasion characters.
 
         Args:
             text: Raw input text.
@@ -29,6 +33,15 @@ class ZeroTrustComplianceSanitizer:
         """
         redacted_fields: List[str] = []
         sanitized = text
+
+        # 0. Pathological Input Defense: Strip Null Bytes & Zero-Width Evasion Chars
+        if cls.NULL_BYTE_REGEX.search(sanitized):
+            redacted_fields.append("NULL_BYTE_INJECTION")
+            sanitized = cls.NULL_BYTE_REGEX.sub('', sanitized)
+
+        if cls.ZERO_WIDTH_REGEX.search(sanitized):
+            redacted_fields.append("ZERO_WIDTH_EVASION")
+            sanitized = cls.ZERO_WIDTH_REGEX.sub('', sanitized)
 
         # 1. PCI-DSS Credit Card Masking (Keep last 4 digits for audit context)
         def _mask_cc(match):
