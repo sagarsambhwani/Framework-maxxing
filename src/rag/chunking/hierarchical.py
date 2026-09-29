@@ -9,6 +9,7 @@ Produces:
 import uuid
 from typing import List, Dict, Any
 from src.rag.chunking.contextual import ContextualChunker
+from src.rag.chunking.detector import NonLinearStructureDetector
 
 class HierarchicalChunker:
     """Decomposes structured documents into linked parent-child chunks."""
@@ -49,11 +50,15 @@ class HierarchicalChunker:
             parent_text = sec["text"]
             words = parent_text.split()
 
-            # If section contains a Markdown table, preserve it as a dedicated chunk
+            # If section contains a Markdown table or diagram, preserve it as a dedicated atomic chunk
             breadcrumb = f"[{doc_type}] {doc_title} > {header}"
-            if "|" in parent_text and parent_text.strip().startswith("|"):
+            struct_type = NonLinearStructureDetector.classify(parent_text)
+            if struct_type in ("TABLE", "DIAGRAM") or ("|" in parent_text and parent_text.strip().startswith("|")):
+                is_tbl = (struct_type == "TABLE") or ("|" in parent_text and parent_text.strip().startswith("|"))
+                is_diag = (struct_type == "DIAGRAM")
+                suffix = "tbl0" if is_tbl else "diag0"
                 child_text = ContextualChunker.inject_context(parent_text, doc_title, doc_type, header)
-                chunk_id = f"{doc_id}-sec{sec_idx}-tbl0"
+                chunk_id = f"{doc_id}-sec{sec_idx}-{suffix}"
                 parent_id = f"{doc_id}-sec{sec_idx}-parent"
                 all_chunks.append({
                     "chunk_id": chunk_id,
@@ -64,8 +69,15 @@ class HierarchicalChunker:
                     "parent_text": parent_text,
                     "header": header,
                     "page_number": sec_idx + 1,
-                    "is_table": True,
-                    "metadata": {"doc_type": doc_type, "is_table": True, "parent_id": parent_id, "breadcrumb": breadcrumb}
+                    "is_table": is_tbl,
+                    "is_diagram": is_diag,
+                    "metadata": {
+                        "doc_type": doc_type,
+                        "is_table": is_tbl,
+                        "is_diagram": is_diag,
+                        "parent_id": parent_id,
+                        "breadcrumb": breadcrumb
+                    }
                 })
                 continue
 

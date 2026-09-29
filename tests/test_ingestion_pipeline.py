@@ -25,6 +25,7 @@ from src.rag.storage.cdc_registry import cdc_registry
 from src.rag.ingestion.triage import triage_engine
 from src.rag.chunking.contextual import contextual_chunker
 from src.rag.chunking.hierarchical import hierarchical_chunker
+from src.rag.chunking.detector import NonLinearStructureDetector
 from src.rag.storage.hybrid_store import hybrid_store
 from src.rag.storage.audit import audit_store
 from src.rag.pipeline.dlq import dlq
@@ -171,6 +172,43 @@ Stress tests simulate historical shocks including the 2008 financial crisis and 
         assert "context_breadcrumb" in c
         assert "parent_text" in c
         assert len(c["text"]) > 0
+
+def test_nonlinear_structure_detector():
+    tbl = "| Metric | Value |\n| :--- | :--- |\n| Latency | 12ms |"
+    assert NonLinearStructureDetector.is_markdown_table(tbl) is True
+    assert NonLinearStructureDetector.classify(tbl) == "TABLE"
+
+    diag = "```mermaid\ngraph TD\n    A[Client] --> B[Gateway]\n```"
+    assert NonLinearStructureDetector.is_diagram(diag) is True
+    assert NonLinearStructureDetector.classify(diag) == "DIAGRAM"
+
+    prose = "This is a simple linear paragraph explaining bank capital adequacy requirements."
+    assert NonLinearStructureDetector.is_markdown_table(prose) is False
+    assert NonLinearStructureDetector.is_diagram(prose) is False
+    assert NonLinearStructureDetector.classify(prose) == "PROSE"
+
+def test_hierarchical_chunker_atomic_diagram_preservation():
+    diagram_doc = """# Architecture Overview
+```mermaid
+flowchart LR
+    Client --> Gateway
+    Gateway --> LLM
+```
+"""
+    chunks = hierarchical_chunker.chunk_document(
+        doc_id="doc-diag-1",
+        doc_title="System Architecture",
+        doc_type="TECHNICAL_SPEC",
+        layout={"has_tables": False, "tables": [], "headings": ["Architecture Overview"]},
+        sanitized_text=diagram_doc
+    )
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk["is_diagram"] is True
+    assert "mermaid" in chunk["text"]
+    assert "Gateway --> LLM" in chunk["parent_text"]
+    assert chunk["chunk_id"].endswith("-diag0")
+
 
 # ---------------------------------------------------------------------------
 # 5. Tri-Brid Hybrid Search Store Tests
