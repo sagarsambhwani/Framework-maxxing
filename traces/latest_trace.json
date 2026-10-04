@@ -1,8 +1,8 @@
 {
-  "trace_id": "trace-pipe-b70804",
-  "name": "Guardrail:InputCheck",
-  "session_id": "pipe-b70804",
-  "start_time": "2026-09-08T21:57:17+0530",
+  "trace_id": "trace-test-session",
+  "name": "VoiceTurn",
+  "session_id": "test-session",
+  "start_time": "2026-10-04T20:12:39+0530",
   "total_duration_s": 0.0,
   "total_tokens": 0,
   "total_prompt_tokens": 0,
@@ -12,7 +12,7 @@
   "spans": [
     {
       "span_id": "span-1",
-      "name": "Guardrail:InputCheck",
+      "name": "VoiceTurn",
       "model": "N/A",
       "duration_s": 0.0,
       "ttft_ms": "N/A",
@@ -21,11 +21,12 @@
       "total_tokens": 0,
       "cost_usd": 0.0,
       "metadata": {
-        "allowed": false,
-        "reason": "BLOCKED by NeMo Guardrails: Disallowed pattern 'format\\s+c:\\s*drive' detected."
+        "stt_model": "whisper-large-v3-turbo",
+        "stt_latency_s": 0.15,
+        "payload_bytes": 32044
       },
-      "input": null,
-      "output": null
+      "input": "[Audio Payload: 32044 bytes]",
+      "output": "Recognized voice query"
     }
   ]
 }

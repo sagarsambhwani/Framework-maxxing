@@ -29,6 +29,7 @@ from pydantic import BaseModel
 import uvicorn
 from openai import OpenAI
 import litellm
+from src.audio import audio_service
 
 # Ensure UTF-8 output on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -316,36 +317,23 @@ async def chat_stream_endpoint(req: ChatRequest):
 
 
 # ==============================================================================
-# 7. VOICE TRANSCRIPTION (Groq Whisper Large v3 Turbo)
+# 7. VOICE TRANSCRIPTION (Decoupled AudioService + Groq Whisper)
 # ==============================================================================
 @app.post("/api/transcribe")
 async def transcribe_audio_endpoint(file: UploadFile = File(...)):
-    t0 = time.time()
-    term_log("🎙️ [VOICE INPUT]", f"Received audio file: {file.filename}...", LogColors.BLUE)
-
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
     try:
-        groq_client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=GROQ_KEY)
-        with open(tmp_path, "rb") as audio_file:
-            transcription = groq_client.audio.transcriptions.create(
-                model="whisper-large-v3-turbo",
-                file=audio_file,
-                response_format="text"
-            )
-        dur = round(time.time() - t0, 3)
-        text_out = str(transcription).strip()
-        term_log("🎙️ [WHISPER TURBO]", f"Transcribed in {LogColors.GREEN}{dur}s{LogColors.END}: '{LogColors.BOLD}{text_out}{LogColors.END}'", LogColors.GREEN)
-        return JSONResponse({"text": text_out, "duration_s": dur})
+        content = await file.read()
+        result = await audio_service.transcribe(
+            audio_bytes=content,
+            filename=file.filename or "speech.wav",
+            session_id="voice-session"
+        )
+        return JSONResponse({"text": result.text, "duration_s": result.duration_s})
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         term_log("❌ [WHISPER ERROR]", f"{e}", LogColors.RED)
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
 
 
 # ==============================================================================

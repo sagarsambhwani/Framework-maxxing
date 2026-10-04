@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 
 from src.server.models import ChatStreamRequest, TranscribeResponse
+from src.audio import audio_service
 from src.gateway.router import gateway
 from src.guardrails.rails_manager import guardrails
 from src.observability.tracer import tracer
@@ -161,46 +162,33 @@ def create_app() -> FastAPI:
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-    @app.post("/api/transcribe")
+    @app.post("/api/transcribe", response_model=TranscribeResponse)
     async def transcribe(file: UploadFile = File(...)):
-        """Transcribes uploaded speech audio to text in sub-200ms using Groq Whisper Large v3 Turbo.
+        """Transcribes uploaded speech audio to text using decoupled AudioService.
 
         Args:
-            file: Audio file payload (WAV/MP3/M4A).
+            file: Audio file payload (WAV/WebM/MP3/M4A).
 
         Returns:
-            JSON response with transcribed text and execution latency.
+            TranscribeResponse with transcribed text and execution latency.
         """
-        t0 = time.time()
-        term_log("🎙️ [VOICE INPUT]", f"Received audio file: {file.filename}", Colors.BLUE)
-
-        # Write uploaded audio stream to temporary file for Whisper processing
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            content = await file.read()
-            debug_log("🔍 [DEBUG:VOICE_BYTES]", f"Audio file size: {len(content)} bytes")
-            tmp.write(content)
-            tmp_path = tmp.name
-
         try:
-            groq = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=settings.GROQ_API_KEY)
-            with open(tmp_path, "rb") as audio:
-                transcript = groq.audio.transcriptions.create(
-                    model="whisper-large-v3-turbo",
-                    file=audio,
-                    response_format="text"
-                )
-            dur = round(time.time() - t0, 3)
-            text = str(transcript).strip()
-            term_log("🎙️ [WHISPER TURBO]", f"Transcribed in {Colors.GREEN}{dur}s{Colors.END}: '{Colors.BOLD}{text}{Colors.END}'", Colors.GREEN)
-            debug_log("🔍 [DEBUG:WHISPER_OUT]", f"Output text: '{text}' ({dur}s)")
-            return JSONResponse({"text": text, "duration_s": dur})
+            content = await file.read()
+            result = await audio_service.transcribe(
+                audio_bytes=content,
+                filename=file.filename or "speech.wav",
+                session_id="voice-session"
+            )
+            return TranscribeResponse(
+                text=result.text,
+                duration_s=result.duration_s
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             term_log("❌ [WHISPER ERROR]", f"{e}", Colors.RED)
             debug_log("🔍 [DEBUG:WHISPER_ERR]", f"Exception: {e}")
             raise HTTPException(status_code=500, detail=str(e))
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
 
     @app.get("/api/health")
     async def health():
