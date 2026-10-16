@@ -18,6 +18,7 @@ from src.cli.ingest_cmd import run_ingest
 from src.cli.benchmark_cmd import run_benchmark
 from src.cli.eval_cmd import run_evaluation
 from src.cli.alerts_cmd import run_phoenix_server, run_alert_check
+from src.cli.voice_cmd import run_voice
 
 __all__ = [
     "run_server",
@@ -28,4 +29,5 @@ __all__ = [
     "run_evaluation",
     "run_phoenix_server",
     "run_alert_check",
+    "run_voice",
 ]

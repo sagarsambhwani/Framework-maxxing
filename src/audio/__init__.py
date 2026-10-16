@@ -9,9 +9,15 @@ Exports:
 """
 
 from src.audio.models import VADMetrics, TranscribeResult, AudioValidationResult
-from src.audio.service import AudioService, audio_service
 from src.audio.transcriber import WhisperTranscriber
 from src.audio.vad import AudioVADEngine
+
+# Lazy loading via PEP 562 so importing vad or models doesn't trigger network/tracer checks
+def __getattr__(name: str):
+    if name in ("AudioService", "audio_service"):
+        from src.audio import service
+        return getattr(service, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "AudioService",

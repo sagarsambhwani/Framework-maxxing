@@ -9,8 +9,10 @@ Commands:
     6. eval      - Runs Enterprise AI Evaluation & Benchmarking Suite
     7. alerts    - Scans latest local trace for production SLA violations
     8. phoenix   - Launches local Arize Phoenix visual tracing UI on http://localhost:6006
+    9. voice     - Launches Conversational Turn-Taking Voice Agent in terminal mode
 
 Usage:
+    .venv\\Scripts\\python.exe main.py voice
     .venv\\Scripts\\python.exe main.py server
     .venv\\Scripts\\python.exe main.py agent "Design an AI Gateway" --debug
 """
@@ -37,6 +39,7 @@ from src.cli import (
     run_evaluation,
     run_phoenix_server,
     run_alert_check,
+    run_voice,
 )
 
 
@@ -73,6 +76,13 @@ def main():
     ingest_parser.add_argument("file", nargs="?", default=None, help="Optional document path to ingest")
     ingest_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
 
+    voice_parser = subparsers.add_parser("voice", help="Launch Conversational Turn-Taking Voice Agent in the terminal")
+    voice_parser.add_argument("--model", default="groq/qwen/qwen3.8-27b", help="Model slug to query")
+    voice_parser.add_argument("--silence-timeout", type=int, default=650, help="Silence pause in milliseconds before triggering turn endpoint")
+    voice_parser.add_argument("--no-tts", action="store_true", help="Disable audio speech playback (text-only streaming)")
+    voice_parser.add_argument("--barge-in", action="store_true", help="Enable voice barge-in interruption (recommended with headphones)")
+    voice_parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
+
     args = parser.parse_args()
 
     if getattr(args, "debug", False):
@@ -88,6 +98,12 @@ def main():
         "benchmark": run_benchmark,
         "eval": lambda: run_evaluation(export_path=args.export_report),
         "ingest": lambda: run_ingest(file_path=args.file),
+        "voice": lambda: run_voice(
+            model=getattr(args, "model", "groq/qwen/qwen3.8-27b"),
+            silence_timeout_ms=getattr(args, "silence_timeout", 650),
+            voice_output=not getattr(args, "no_tts", False),
+            barge_in=getattr(args, "barge_in", False)
+        ),
     }
 
     handler = dispatch.get(args.command, run_server)
